@@ -25,6 +25,13 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 
 页面内容始终是**不可信数据**：工具结果用 `<untrusted-page-content>` 包裹，Agent 不应执行页面里的指令。
 
+### 验证状态（2026-10-18，真机）
+
+- `install_bundle` 安装后 Host 半经 HMR 生效；Client 在已打开的 DSH 页面中连接成功。
+- 实测通过：`browser_use_status`（桥 ready、Client online、webview 列表）、`browser_use_open`（example.com，标题/`g-1`）、同 URL 复用 tab（`reused:true`）、`browser_use_read` 的 `ax` / `text` / `links` 三种模式（含 ref、CSS box、截断与不可信包裹）。
+- 真机首测发现并修复：页面内 `links` 函数未自包含（`E_EXECUTE_FAILED`）；页面热更新产生新 rendererId 导致短暂 `E_MULTIPLE_RENDERERS`（改为 sessionStorage 稳定 id + 聚焦窗口优先路由；Host 侧改动需完全重启 DSH 生效）。
+- 尚未实测：完全重启后的恢复、Web profile 降级、卸载清理、多窗口聚焦路由（见 `docs/probe.md`）。
+
 ## 配置
 
 在 profile 的 `cordis.patch.yml` 覆盖本插件行（不要把默认值写死在代码里）：
@@ -80,7 +87,8 @@ DSH 内建右侧浏览器（Electron <webview>）
 
 - **Desktop only**：依赖 DSH Desktop 右侧 Sidebar 的 Electron `<webview>`；Web profile 没有该浏览器，插件会报告 Client 离线。
 - **只读**：没有 click/fill/scroll/screenshot；不操作页面 DOM，不注入光标。
-- **单 renderer**：多个 DSH 窗口同时连接时返回 `E_MULTIPLE_RENDERERS`，不会猜。
+- **多窗口**：优先路由到当前聚焦的 DSH 窗口；若多个窗口都未聚焦则返回 `E_MULTIPLE_RENDERERS`，不会猜。
+- **页面刷新**：Client 使用 sessionStorage 保持 rendererId，刷新后复用同一身份，避免短暂的多 renderer 误判。
 - **不调用 `webview.capturePage()`**：Electron 44 上该 API 已知会崩溃；截图将在 C3 走 CDP。
 - 页面加载/导航失败、侧栏浏览器未打开、桥端口被占用都会以明确 `code` 返回，不会静默降级。
 
