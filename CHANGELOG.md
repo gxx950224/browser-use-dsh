@@ -3,6 +3,11 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.4 — 2026-10-18
+
+- Fixed the Browser Use panel staying in `awaiting` after an approval was rejected or the
+  approval request failed; it now returns to `idle` with the outcome message.
+
 ## 0.9.3 — 2026-10-18
 
 - `browser_use_panel` accepts `takeover: true | false` to hand the browser to the user or

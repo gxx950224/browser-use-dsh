@@ -1,6 +1,6 @@
 {
   "name": "@gxx-labs/browser-use-dsh",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "DSH Desktop 可见协作/批注层：在内建右侧 Browser 中把 Agent 的观察、操作、批注与审批可视化；不是官方 Browser Use Provider 的替代。",
   "type": "module",
   "main": "lib/index.js",
