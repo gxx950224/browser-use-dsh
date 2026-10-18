@@ -3,6 +3,13 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.7 — 2026-10-19
+
+- Rewrote README for download users: installation, quick start, element annotation,
+  Browser Use panel, configuration, approvals, troubleshooting and limitations. Removed
+  development history and internal verification notes.
+- No functional changes.
+
 ## 0.9.6 — 2026-10-18
 
 - Text targets now prefer exact/deepest interactive matches instead of the first ancestor whose
