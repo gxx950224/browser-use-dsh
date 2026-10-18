@@ -3,7 +3,7 @@
 DSH Desktop 可见浏览器 Agent：在右侧**内建 Browser tab** 中观察、操作并验证网页；动作时页面内显示 Agent 光标/目标高亮，支持审批、CDP 截图，以及右侧 Browser Use 状态面板（六态泛光 + 人工接管）。
 
 > **版本 0.8.0（C1–C4 功能完成 + Codex 式元素批注 + 直接发送到聊天 + C5 发布准备）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧六态面板 + 接管/交还，以及页面右上角的 **「⌖ 选取元素」批注流程**（点选元素 → 评论框 → 多条批注 → **自动插入聊天输入框并发送**；不可用时回退复制）。
-> 官方内建 Browser 工具栏没有可注入的 slot，因此按钮放在网页内容右上角；可用 `floatingPickButton: false` 关闭。本仓库已完成构建/测试/打包校验；**尚未执行 npm publish**。
+> 官方内建 Browser 工具栏没有可注入的 slot，因此按钮放在网页内容右上角；可用 `floatingPickButton: false` 关闭。本仓库已完成构建/测试/打包校验；**尚未执行 npm publish**。发布就绪度见 [docs/release-readiness.md](docs/release-readiness.md)。
 
 ## 安装（本地目录）
 
