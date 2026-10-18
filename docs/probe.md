@@ -22,6 +22,9 @@
 | 16 | 验证器 | `browser_use_verify` 校验 URL/标题/文本/元素，`passed` 与证据一致 | 单测通过；真机待复测 | 待复测 |
 | 17 | 跨站链接审批 | 点击指向其他 Origin 的链接会先询问新 Origin | 单测未覆盖跨站链接分支；真机待复测 | 待复测 |
 | 18 | reload 后 generation | `act {action:"reload"}` 后 generation 递增，旧 ref 失效 | 待复测 | 待复测 |
+| 19 | 截图（CDP 关闭） | `browser_use_screenshot` 在无调试端口时返回 `E_CDP_UNAVAILABLE` 与启动提示 | 单测覆盖（本机 9222 当前不可达） | 待真机 |
+| 20 | 截图（CDP 开启） | 以 `--remote-debugging-port=9222` 启动后截图成功，作为图片附件返回模型/界面 | 待真机 | 待填（C3） |
+| 21 | 页面内视觉反馈 | act 时页面出现光标/目标高亮/ripple，1.8s 后清理；`visualFeedback:false` 关闭 | 代码实现，待真机 | 待填（C3） |
 
 > 2026-10-18 C2 实机进展：remove_bundle + install_bundle 后 Host 半加载 C2（工具/提示词已更新，`capabilities.act/verify:true`）。
 > 重建插件后 Sidebar webview 随页面重载消失，`browser_use_open` 触发"新 Origin 审批"时，**本会话的审批策略为 `never`，审批被确定性拒绝并返回 `E_APPROVAL_DENIED`**——这正是 fail-closed 设计，说明 Origin 门禁已生效；也意味着 act/verify 的真机动作需要先把审批策略切回 `ask`（或手动打开侧栏浏览器页、或配置 `trustedOrigins`）才能复测。

@@ -12,6 +12,8 @@ test('defaults: desktop bridge defaults are stable', () => {
   assert.equal(config.openReuseTab, true)
   assert.equal(config.approvalPolicy, 'sensitive')
   assert.equal(config.originApproval, 'ask')
+  assert.equal(config.cdpPort, 9222)
+  assert.equal(config.visualFeedback, true)
   assert.deepEqual(config.trustedOrigins, [])
   assert.deepEqual(config.allowedOrigins, ['dsh-app://app'])
 })
@@ -26,6 +28,8 @@ test('invalid values fall back with warnings', () => {
     maxBodyBytes: 10,
     approvalPolicy: 'yolo',
     originApproval: 'maybe',
+    cdpPort: 80,
+    visualFeedback: 'yes',
   })
   assert.equal(config.bridgePort, DEFAULTS.bridgePort)
   assert.equal(config.commandTimeoutMs, DEFAULTS.commandTimeoutMs)
@@ -35,7 +39,9 @@ test('invalid values fall back with warnings', () => {
   assert.equal(config.maxBodyBytes, DEFAULTS.maxBodyBytes)
   assert.equal(config.approvalPolicy, DEFAULTS.approvalPolicy)
   assert.equal(config.originApproval, DEFAULTS.originApproval)
-  assert.equal(warnings.length, 8)
+  assert.equal(config.cdpPort, DEFAULTS.cdpPort)
+  assert.equal(config.visualFeedback, DEFAULTS.visualFeedback)
+  assert.equal(warnings.length, 10)
 })
 
 test('valid overrides are kept and the desktop origin is always allowed', () => {
@@ -50,6 +56,8 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
     approvalPolicy: 'all',
     originApproval: 'off',
     trustedOrigins: ['https://example.com/'],
+    cdpPort: 9333,
+    visualFeedback: false,
   })
   assert.equal(config.bridgePort, 9900)
   assert.equal(config.commandTimeoutMs, 12000)
@@ -59,6 +67,8 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
   assert.equal(config.maxBodyBytes, 4096)
   assert.equal(config.approvalPolicy, 'all')
   assert.equal(config.originApproval, 'off')
+  assert.equal(config.cdpPort, 9333)
+  assert.equal(config.visualFeedback, false)
   assert.deepEqual(config.trustedOrigins, ['https://example.com'])
   assert.deepEqual(config.allowedOrigins, ['https://example.com', 'dsh-app://app'])
 })

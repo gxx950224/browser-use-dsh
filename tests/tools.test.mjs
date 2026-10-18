@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { normalizeConfig } from '../lib/config.js'
+import { BrowserUseError } from '../lib/errors.js'
 import { registerTools } from '../lib/tools.js'
 
 const config = normalizeConfig({ bridgePort: 0 }).config
@@ -10,8 +11,10 @@ function fakeCtx(options = {}) {
   return {
     definitions,
     approval: options.approval,
+    attachments: options.attachments,
     get(name) {
       if (name === 'approval') return options.approval
+      if (name === 'attachments') return options.attachments
       return undefined
     },
     tools: {
@@ -20,6 +23,20 @@ function fakeCtx(options = {}) {
         return () => definitions.delete(definition.name)
       },
     },
+  }
+}
+
+function fakeCdp(overrides = {}) {
+  return {
+    probeCdp: async () => ({ available: true, port: 9222, targets: [{ type: 'webview', url: 'https://example.com/' }] }),
+    captureScreenshot: async () => ({
+      ok: true,
+      data: new Uint8Array([137, 80, 78, 71]),
+      bytes: 4,
+      mediaType: 'image/png',
+      target: { url: 'https://example.com/', title: 'Example' },
+    }),
+    ...overrides,
   }
 }
 
@@ -48,16 +65,23 @@ function fakeBridge(overrides = {}) {
 function setup(options = {}) {
   const ctx = fakeCtx(options)
   const bridge = fakeBridge(options.bridgeOverrides)
-  const dispose = registerTools(ctx, { bridge, config: normalizeConfig(options.config).config, logger: {}, version: '0.2.0' })
+  const dispose = registerTools(ctx, {
+    bridge,
+    config: normalizeConfig(options.config).config,
+    logger: {},
+    version: '0.3.0',
+    cdp: options.cdp || fakeCdp(options.cdpOverrides),
+  })
   return { ctx, bridge, dispose }
 }
 
-test('registers the C2 tool set', () => {
+test('registers the C3 tool set', () => {
   const { ctx, dispose } = setup()
   assert.deepEqual([...ctx.definitions.keys()].sort(), [
     'browser_use_act',
     'browser_use_open',
     'browser_use_read',
+    'browser_use_screenshot',
     'browser_use_status',
     'browser_use_verify',
   ])
@@ -65,14 +89,15 @@ test('registers the C2 tool set', () => {
   assert.equal(ctx.definitions.size, 0)
 })
 
-test('status advertises act/verify and approval policies', async () => {
+test('status advertises act/verify/screenshot/visual capabilities', async () => {
   const { ctx } = setup()
   const value = await ctx.definitions.get('browser_use_status').execute({ detail: 'summary' }, {})
   assert.equal(value.ok, true)
   assert.equal(value.capabilities.read, true)
   assert.equal(value.capabilities.act, true)
   assert.equal(value.capabilities.verify, true)
-  assert.equal(value.capabilities.screenshot, false)
+  assert.equal(value.capabilities.screenshot, true)
+  assert.equal(value.capabilities.visual, true)
   assert.equal(value.capabilities.approval.sensitiveActions, 'sensitive')
   assert.equal(value.capabilities.approval.newOrigins, 'ask')
 })
@@ -211,6 +236,56 @@ test('open skips origin approval for a trusted origin without an approval servic
   assert.equal(value.ok, true)
   assert.equal(value.origin, 'https://example.com')
   assert.equal(bridge.calls.filter((call) => call.op === 'open').length, 1)
+})
+
+test('screenshot stores an image attachment and renders an image block', async () => {
+  const saved = []
+  const attachments = {
+    async saveImage(input) {
+      saved.push(input)
+      return {
+        attachmentId: 'att-1',
+        mediaType: 'image/png',
+        bytes: input.data.length,
+        width: 10,
+        height: 10,
+        name: input.name,
+      }
+    },
+  }
+  const { ctx } = setup({ attachments })
+  const definition = ctx.definitions.get('browser_use_screenshot')
+  const value = await definition.execute({}, {})
+  assert.equal(value.ok, true)
+  assert.equal(value.attachment.attachmentId, 'att-1')
+  assert.equal(saved.length, 1)
+  assert.equal(saved[0].mediaType, 'image/png')
+  const rendered = definition.output.render({}, value)
+  assert.equal(rendered.length, 2)
+  assert.equal(rendered[1].type, 'image')
+  assert.equal(rendered[1].attachment.attachmentId, 'att-1')
+})
+
+test('screenshot reports E_CDP_UNAVAILABLE when CDP is off', async () => {
+  const { ctx } = setup({
+    cdp: {
+      probeCdp: async () => ({ available: false, port: 9222, error: 'connection refused' }),
+      captureScreenshot: async () => {
+        throw new BrowserUseError('E_CDP_UNAVAILABLE', 'CDP endpoint is not available')
+      },
+    },
+  })
+  const value = await ctx.definitions.get('browser_use_screenshot').execute({}, {})
+  assert.equal(value.ok, false)
+  assert.equal(value.code, 'E_CDP_UNAVAILABLE')
+  assert.match(value.hint || '', /remote-debugging-port/u)
+})
+
+test('screenshot fails closed without an attachment service', async () => {
+  const { ctx } = setup()
+  const value = await ctx.definitions.get('browser_use_screenshot').execute({}, {})
+  assert.equal(value.ok, false)
+  assert.equal(value.code, 'E_ATTACHMENT_UNAVAILABLE')
 })
 
 test('verify passes structured checks through', async () => {

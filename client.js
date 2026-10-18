@@ -848,6 +848,124 @@ window.__ModuleLoader__.load({
         fire(element, 'input', {})
         fire(element, 'change', {})
       }
+      function paintVisual(element, action) {
+        try {
+          var existing = document.getElementById('dsh-browser-use-visual')
+          if (existing) existing.remove()
+          var rect = element.getBoundingClientRect()
+          if (rect.width < 2 || rect.height < 2) return
+          var reduce =
+            window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          var host = document.createElement('div')
+          host.id = 'dsh-browser-use-visual'
+          host.style.cssText =
+            'position:fixed;inset:0;pointer-events:none;z-index:2147483647;font-family:"Segoe UI","Microsoft YaHei",sans-serif;'
+          var highlight = document.createElement('div')
+          highlight.style.cssText =
+            'position:fixed;left:' +
+            (rect.x - 3) +
+            'px;top:' +
+            (rect.y - 3) +
+            'px;width:' +
+            (rect.width + 6) +
+            'px;height:' +
+            (rect.height + 6) +
+            'px;border:2px solid rgba(124,160,255,.95);border-radius:10px;box-shadow:0 0 0 4px rgba(124,160,255,.16),0 0 28px rgba(124,160,255,.45);'
+          var label = document.createElement('div')
+          var verb =
+            action === 'click'
+              ? '点击'
+              : action === 'fill'
+                ? '填写'
+                : action === 'type'
+                  ? '输入'
+                  : action === 'select'
+                    ? '选择'
+                    : action === 'check' || action === 'uncheck'
+                      ? '切换'
+                      : '操作'
+          var name = ''
+          try {
+            name = String(
+              element.getAttribute('aria-label') ||
+                element.getAttribute('title') ||
+                element.getAttribute('placeholder') ||
+                element.innerText ||
+                element.textContent ||
+                '',
+            )
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 40)
+          } catch (error) {
+            name = ''
+          }
+          label.textContent = verb + (name ? ' · ' + name : '')
+          label.style.cssText =
+            'position:fixed;left:' +
+            Math.max(6, Math.min(window.innerWidth - 200, rect.x)) +
+            'px;top:' +
+            Math.max(6, rect.y - 28) +
+            'px;background:rgba(15,22,36,.92);color:#dce8ff;border:1px solid rgba(140,170,255,.45);border-radius:7px;padding:3px 8px;font-size:12px;white-space:nowrap;box-shadow:0 10px 26px -12px rgba(0,0,0,.8),0 0 20px -10px rgba(120,150,255,.8);'
+          var cursor = document.createElement('div')
+          cursor.style.cssText =
+            'position:fixed;left:' +
+            (rect.x + rect.width / 2) +
+            'px;top:' +
+            (rect.y + rect.height / 2) +
+            'px;width:26px;height:26px;transform:translate(-8px,-6px);opacity:' +
+            (reduce ? '1' : '0') +
+            ';transition:transform .5s cubic-bezier(.22,.82,.24,1),opacity .2s ease;filter:drop-shadow(0 0 9px rgba(120,160,255,.95));'
+          cursor.innerHTML =
+            '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.2 2.8 L21.6 11.2 C22.6 11.7 22.5 13.1 21.5 13.4 L14.6 15.2 L11.1 21.9 C10.6 22.9 9.2 22.7 9 21.6 L3 4.4 C2.8 3.4 3.4 2.4 4.2 2.8 Z" fill="#f2f7ff" stroke="#9dc0ff" stroke-width="1.4" stroke-linejoin="round"/></svg>'
+          var ring = document.createElement('div')
+          ring.style.cssText =
+            'position:fixed;left:' +
+            (rect.x + rect.width / 2 - 24) +
+            'px;top:' +
+            (rect.y + rect.height / 2 - 24) +
+            'px;width:48px;height:48px;border-radius:50%;border:2px solid rgba(160,190,255,.9);box-shadow:0 0 18px rgba(120,150,255,.55);'
+          host.appendChild(highlight)
+          host.appendChild(label)
+          host.appendChild(cursor)
+          host.appendChild(ring)
+          if (action === 'click' || action === 'check' || action === 'uncheck') {
+            var ripple = document.createElement('div')
+            ripple.style.cssText =
+              'position:fixed;left:' +
+              (rect.x + rect.width / 2 - 15) +
+              'px;top:' +
+              (rect.y + rect.height / 2 - 15) +
+              'px;width:30px;height:30px;border-radius:50%;border:2px solid rgba(170,200,255,.95);'
+            host.appendChild(ripple)
+            if (!reduce && typeof ripple.animate === 'function') {
+              ripple.animate(
+                [
+                  { transform: 'scale(.35)', opacity: 1 },
+                  { transform: 'scale(2.4)', opacity: 0 },
+                ],
+                { duration: 620, easing: 'ease-out' },
+              )
+            }
+          }
+          document.documentElement.appendChild(host)
+          if (!reduce) {
+            window.requestAnimationFrame(function () {
+              cursor.style.opacity = '1'
+              cursor.style.transform = 'translate(-13px,-13px)'
+            })
+          }
+          window.setTimeout(function () {
+            try {
+              host.remove()
+            } catch (error) {
+              /* ignore */
+            }
+          }, 1800)
+        } catch (error) {
+          /* visual feedback is best effort; never block the action */
+        }
+      }
       var action = String((args && args.action) || '')
       var target = args && args.target
       var element = findTarget(target)
@@ -869,6 +987,7 @@ window.__ModuleLoader__.load({
           /* ignore */
         }
       }
+      if (args.visual !== false && element) paintVisual(element, action)
       if (action === 'click') {
         try {
           element.focus()
