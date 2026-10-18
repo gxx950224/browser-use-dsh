@@ -781,6 +781,16 @@ window.__ModuleLoader__.load({
         var value = fieldValue(element)
         if (value !== undefined) node.value = value
         if (element.disabled === true) node.disabled = true
+        var ariaChecked = element.getAttribute('aria-checked')
+        if (ariaChecked !== null) node.checked = ariaChecked
+        else if (
+          element.tagName === 'INPUT' &&
+          (element.type === 'checkbox' || element.type === 'radio')
+        ) {
+          node.checked = Boolean(element.checked)
+        }
+        var ariaPressed = element.getAttribute('aria-pressed')
+        if (ariaPressed !== null) node.pressed = ariaPressed
         nodes.push(node)
         count += 1
         var children = element.children

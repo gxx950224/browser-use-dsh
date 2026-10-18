@@ -3,6 +3,11 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.8.1 — 2026-10-18
+
+- AX nodes now include `checked` (from `aria-checked`, checkbox/radio state) and `pressed`
+  (`aria-pressed`) so switch/toggle state can be read before acting.
+
 ## 0.8.0 — 2026-10-18
 
 Annotation send now goes to the chat composer instead of the clipboard.
