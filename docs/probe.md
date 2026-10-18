@@ -25,9 +25,9 @@
 | 19 | 截图（CDP 关闭） | `browser_use_screenshot` 在无调试端口时返回 `E_CDP_UNAVAILABLE` 与启动提示 | 2026-10-18 真机：`E_CDP_UNAVAILABLE`，message/hint 含 `--remote-debugging-port=9222`；status `capabilities.screenshot:false` | 通过 |
 | 20 | 截图（CDP 开启） | 以 `--remote-debugging-port=9222` 启动后截图成功，作为图片附件返回模型/界面 | 待真机（需带调试端口重启 DSH） | 待填（C3） |
 | 21 | 页面内视觉反馈 | act 时页面出现光标/目标高亮/ripple，1.8s 后清理；`visualFeedback:false` 关闭 | 2026-10-18：`hover` 动作成功且 overlay 注入路径执行无报错；视觉呈现需用户确认 | 部分通过 |
-| 22 | 右侧面板打开 | `browser_use_panel` 打开自注册 `browser-use-panel` tab，显示状态/页面/最近操作 | | 待填（C4） |
-| 23 | 六态泛光 | idle/observing/acting/awaiting/success/failed/paused 各有对应面板泛光 | | 待填（C4） |
-| 24 | 接管/交还 | 面板"接管浏览器"后 Agent 动作返回 `E_TAKEOVER`；"交还 Agent"后需重新 read | | 待填（C4） |
+| 22 | 右侧面板打开 | `browser_use_panel` 打开自注册 `browser-use-panel` tab，显示状态/页面/最近操作 | 2026-10-18：`browser_use_panel` 返回 `ok:true`；`status.client.panel.registered:true,state:"idle"` | 通过 |
+| 23 | 六态泛光 | idle/observing/acting/awaiting/success/failed/paused 各有对应面板泛光 | 面板已注册；六态视觉与动画待用户确认 | 部分通过 |
+| 24 | 接管/交还 | 面板"接管浏览器"后 Agent 动作返回 `E_TAKEOVER`；"交还 Agent"后需重新 read | 面板按钮已渲染；接管后 E_TAKEOVER 分支待用户点击面板按钮后复测 | 待复测 |
 
 > 2026-10-18 C2 实机进展：remove_bundle + install_bundle 后 Host 半加载 C2（工具/提示词已更新，`capabilities.act/verify:true`）。
 > 重建插件后 Sidebar webview 随页面重载消失，`browser_use_open` 触发"新 Origin 审批"时，**本会话的审批策略为 `never`，审批被确定性拒绝并返回 `E_APPROVAL_DENIED`**——这正是 fail-closed 设计，说明 Origin 门禁已生效；也意味着 act/verify 的真机动作需要先把审批策略切回 `ask`（或手动打开侧栏浏览器页、或配置 `trustedOrigins`）才能复测。
