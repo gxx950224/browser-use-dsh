@@ -48,6 +48,8 @@ function fakeBridge(overrides = {}) {
     resolve: { ok: true, url: 'https://example.com/', title: 'Example', target: { ref: 'e1', tag: 'a', role: 'link', name: 'Learn more' } },
     act: { ok: true, action: 'click', url: 'https://example.com/', title: 'Example', generation: 'g-1' },
     verify: { ok: true, passed: true, checks: [{ name: 'title', expected: 'Example', actual: 'Example', pass: true }] },
+    openPanel: { ok: true },
+    uiState: { ok: true },
     ...overrides,
   }
   return {
@@ -75,11 +77,12 @@ function setup(options = {}) {
   return { ctx, bridge, dispose }
 }
 
-test('registers the C3 tool set', () => {
+test('registers the C4 tool set', () => {
   const { ctx, dispose } = setup()
   assert.deepEqual([...ctx.definitions.keys()].sort(), [
     'browser_use_act',
     'browser_use_open',
+    'browser_use_panel',
     'browser_use_read',
     'browser_use_screenshot',
     'browser_use_status',
@@ -98,6 +101,7 @@ test('status advertises act/verify/screenshot/visual capabilities', async () => 
   assert.equal(value.capabilities.verify, true)
   assert.equal(value.capabilities.screenshot, true)
   assert.equal(value.capabilities.visual, true)
+  assert.equal(value.capabilities.panel, true)
   assert.equal(value.capabilities.approval.sensitiveActions, 'sensitive')
   assert.equal(value.capabilities.approval.newOrigins, 'ask')
 })
@@ -152,7 +156,7 @@ test('sensitive click asks approval and stops when rejected', async () => {
   assert.equal(value.code, 'E_APPROVAL_DENIED')
   assert.equal(asked, 1)
   assert.deepEqual(
-    bridge.calls.map((call) => call.op),
+    bridge.calls.filter((call) => call.op !== 'uiState').map((call) => call.op),
     ['resolve'],
     'act must not run after a rejected approval',
   )
@@ -181,7 +185,7 @@ test('sensitive click proceeds after approval and reports it', async () => {
   assert.equal(value.approval.required, true)
   assert.equal(value.approval.outcome, 'allowed-once')
   assert.deepEqual(
-    bridge.calls.map((call) => call.op),
+    bridge.calls.filter((call) => call.op !== 'uiState').map((call) => call.op),
     ['resolve', 'act'],
   )
 })
@@ -286,6 +290,14 @@ test('screenshot fails closed without an attachment service', async () => {
   const value = await ctx.definitions.get('browser_use_screenshot').execute({}, {})
   assert.equal(value.ok, false)
   assert.equal(value.code, 'E_ATTACHMENT_UNAVAILABLE')
+})
+
+test('panel tool opens the sidebar panel through the bridge', async () => {
+  const { ctx, bridge } = setup()
+  const value = await ctx.definitions.get('browser_use_panel').execute({}, {})
+  assert.equal(value.ok, true)
+  assert.equal(value.panel, 'browser-use-panel')
+  assert.equal(bridge.calls.filter((call) => call.op === 'openPanel').length, 1)
 })
 
 test('verify passes structured checks through', async () => {

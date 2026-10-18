@@ -16,6 +16,105 @@ window.__ModuleLoader__.load({
     var EXECUTE_TIMEOUT_MS = 20000
     var RECONNECT_MIN_MS = 250
     var RECONNECT_MAX_MS = 5000
+    var PANEL_ID = 'browser-use-dsh-panel'
+    var PANEL_KIND = 'browser-use-panel'
+    var PANEL_TITLE = 'Browser Use'
+
+    /* ------------------------------------------------------------------ *
+     * Panel store (shared by the bridge loop and the Sidebar panel)
+     * ------------------------------------------------------------------ */
+
+    var panelState = {
+      state: 'idle',
+      message: '等待连接',
+      url: '',
+      title: '',
+      generation: 'g-0',
+      takeover: false,
+      steps: [],
+      registered: false,
+      updatedAt: 0,
+    }
+    var panelListeners = new Set()
+
+    function setPanelState(patch) {
+      panelState = Object.assign({}, panelState, patch || {}, { updatedAt: Date.now() })
+      for (var listener of panelListeners) {
+        try {
+          listener(panelState)
+        } catch (error) {
+          /* ignore listener errors */
+        }
+      }
+    }
+
+    function pushPanelStep(text, status) {
+      var steps = (panelState.steps || []).slice(0, 7)
+      steps.unshift({ text: String(text || ''), status: status || 'done', time: Date.now() })
+      setPanelState({ steps: steps.slice(0, 8) })
+    }
+
+    function subscribePanel(listener) {
+      panelListeners.add(listener)
+      return function () {
+        panelListeners.delete(listener)
+      }
+    }
+
+    function toggleTakeover() {
+      var next = !panelState.takeover
+      setPanelState({
+        takeover: next,
+        state: next ? 'paused' : 'idle',
+        message: next ? '你已接管浏览器，Agent 已暂停' : '已交还 Agent，需要重新读取页面',
+      })
+      pushPanelStep(next ? '用户接管浏览器' : '用户交还浏览器', next ? 'paused' : 'done')
+      return next
+    }
+
+    var PANEL_STATE_LABELS = {
+      idle: '空闲',
+      observing: '观察中',
+      acting: '操作中',
+      awaiting: '等待审批',
+      success: '成功',
+      failed: '失败',
+      paused: '已接管',
+    }
+
+    var PANEL_CSS =
+      '.bu8f3a2c71_root{position:relative;height:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;padding:14px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-base);border-radius:var(--dsw-radius-md);overflow:auto;font:12px/1.55 "Segoe UI","Microsoft YaHei UI","PingFang SC",system-ui,sans-serif}' +
+      '.bu8f3a2c71_root::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l1),inset 0 0 34px -16px var(--bu-glow,transparent);opacity:.95;transition:box-shadow .4s ease,opacity .4s ease}' +
+      '.bu8f3a2c71_s_observing{--bu-glow:var(--dsw-alias-interactive-primary)}' +
+      '.bu8f3a2c71_s_observing::after{animation:bu8f3a2c71_breathe 2.6s ease-in-out infinite}' +
+      '.bu8f3a2c71_s_acting{--bu-glow:color-mix(in srgb,var(--dsw-alias-interactive-primary) 70%,var(--dsw-alias-state-success))}' +
+      '.bu8f3a2c71_s_acting::after{animation:bu8f3a2c71_pulse 1.4s ease-in-out infinite}' +
+      '.bu8f3a2c71_s_awaiting{--bu-glow:var(--dsw-alias-state-warning)}' +
+      '.bu8f3a2c71_s_awaiting::after{animation:bu8f3a2c71_pulse 1.2s ease-in-out infinite}' +
+      '.bu8f3a2c71_s_success{--bu-glow:var(--dsw-alias-state-success)}' +
+      '.bu8f3a2c71_s_failed{--bu-glow:var(--dsw-alias-state-error)}' +
+      '.bu8f3a2c71_s_paused{--bu-glow:var(--dsw-alias-label-secondary)}' +
+      '.bu8f3a2c71_head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}' +
+      '.bu8f3a2c71_dot{width:8px;height:8px;border-radius:50%;background:var(--bu-glow,var(--dsw-alias-label-tertiary));box-shadow:0 0 10px var(--bu-glow,transparent)}' +
+      '.bu8f3a2c71_name{font-weight:600;font-size:var(--dsw-font-sm)}' +
+      '.bu8f3a2c71_state{margin-left:auto;font-size:var(--dsw-font-xxs);color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l1);border-radius:999px;padding:1px 8px}' +
+      '.bu8f3a2c71_btn{margin-left:6px;height:26px;padding:0 10px;border-radius:var(--dsw-radius-sm);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-elevated);color:var(--dsw-alias-label-primary);font:inherit;font-size:var(--dsw-font-xxs);cursor:pointer}' +
+      '.bu8f3a2c71_btn:hover{background:var(--dsw-alias-bg-hover)}' +
+      '.bu8f3a2c71_btn.on{color:var(--dsw-alias-state-warning);border-color:var(--dsw-alias-state-warning)}' +
+      '.bu8f3a2c71_page{padding:10px 11px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-elevated)}' +
+      '.bu8f3a2c71_title{font-size:var(--dsw-font-sm);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.bu8f3a2c71_url{margin-top:3px;font-size:var(--dsw-font-xxs);color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.bu8f3a2c71_steps{display:flex;flex-direction:column;gap:6px;min-height:0}' +
+      '.bu8f3a2c71_step{display:flex;gap:7px;align-items:flex-start;font-size:var(--dsw-font-xxs);color:var(--dsw-alias-label-secondary)}' +
+      '.bu8f3a2c71_sd{width:6px;height:6px;border-radius:50%;margin-top:5px;background:var(--dsw-alias-label-tertiary);flex:0 0 6px}' +
+      '.bu8f3a2c71_sd_ok{background:var(--dsw-alias-state-success)}' +
+      '.bu8f3a2c71_sd_failed{background:var(--dsw-alias-state-error)}' +
+      '.bu8f3a2c71_sd_paused{background:var(--dsw-alias-state-warning)}' +
+      '.bu8f3a2c71_empty{padding:10px;border:1px dashed var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-tertiary);font-size:var(--dsw-font-xxs)}' +
+      '.bu8f3a2c71_foot{margin-top:auto;font-size:var(--dsw-font-xxs);color:var(--dsw-alias-label-tertiary)}' +
+      '@keyframes bu8f3a2c71_breathe{0%,100%{opacity:.45}50%{opacity:1}}' +
+      '@keyframes bu8f3a2c71_pulse{0%,100%{opacity:.5}50%{opacity:1}}' +
+      '@media (prefers-reduced-motion: reduce){.bu8f3a2c71_root::after{animation:none!important}}'
 
     /* ------------------------------------------------------------------ *
      * Small utilities
@@ -1287,6 +1386,12 @@ window.__ModuleLoader__.load({
         webview: target
           ? { url: webviewUrl(target), title: webviewTitle(target), visible: isVisible(target) }
           : null,
+        panel: {
+          registered: panelState.registered,
+          state: panelState.state,
+          takeover: panelState.takeover,
+          steps: panelState.steps.length,
+        },
         hint:
           webviews.length === 0
             ? 'No Sidebar browser webview found. Open the browser tab with browser_use_open first.'
@@ -1344,6 +1449,14 @@ window.__ModuleLoader__.load({
       if (!loadResult.ok) return failure(loadResult.error.code, loadResult.error.message)
       var gen = bumpGeneration()
       var webviews = collectWebviews(document)
+      setPanelState({
+        state: 'success',
+        message: '页面已加载',
+        url: webviewUrl(target) || requested,
+        title: webviewTitle(target),
+        generation: gen,
+      })
+      pushPanelStep('打开 ' + (webviewTitle(target) || requested), 'done')
       return {
         ok: true,
         url: webviewUrl(target) || requested,
@@ -1591,16 +1704,23 @@ window.__ModuleLoader__.load({
         }
       }
       if (op === 'open') {
+        setPanelState({ state: 'observing', message: '打开页面' })
         try {
           return success(await dispatchOpen(ctx, args || {}))
         } catch (error) {
+          setPanelState({ state: 'failed', message: cleanText(error && error.message) })
           return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
         }
       }
       if (op === 'read') {
+        setPanelState({ state: 'observing', message: '读取页面' })
         try {
-          return success(await dispatchRead(args || {}))
+          var readResult = await dispatchRead(args || {})
+          setPanelState({ state: readResult.ok === false ? 'failed' : 'idle', message: readResult.ok === false ? '读取失败' : '就绪' })
+          if (readResult.ok !== false) pushPanelStep('读取页面 · ' + String((args && args.mode) || 'ax'), 'done')
+          return success(readResult)
         } catch (error) {
+          setPanelState({ state: 'failed', message: cleanText(error && error.message) })
           return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
         }
       }
@@ -1612,9 +1732,38 @@ window.__ModuleLoader__.load({
         }
       }
       if (op === 'act') {
+        if (panelState.takeover) {
+          return failure(
+            'E_TAKEOVER',
+            'the user has taken over the browser; agent actions are paused',
+            'ask the user to click "交还 Agent" in the Browser Use panel, then re-read the page',
+          )
+        }
+        var actAction = String((args && args.action) || '')
+        setPanelState({ state: 'acting', message: '执行 ' + actAction })
         try {
-          return success(await dispatchAct(args || {}))
+          var actResult = await dispatchAct(args || {})
+          if (actResult.ok === false) {
+            setPanelState({ state: 'failed', message: (actResult.error && actResult.error.message) || '动作失败' })
+            pushPanelStep(actAction + ' · ' + ((actResult.error && actResult.error.code) || 'failed'), 'failed')
+          } else {
+            setPanelState({
+              state: 'success',
+              message: '动作完成',
+              url: actResult.url || panelState.url,
+              title: actResult.title || panelState.title,
+              generation: actResult.generation || panelState.generation,
+            })
+            pushPanelStep(actAction + (actResult.target && actResult.target.name ? ' · ' + actResult.target.name : ''), 'done')
+            window.setTimeout(function () {
+              if (!panelState.takeover && panelState.state === 'success') {
+                setPanelState({ state: 'idle', message: '就绪' })
+              }
+            }, 1800)
+          }
+          return success(actResult)
         } catch (error) {
+          setPanelState({ state: 'failed', message: cleanText(error && error.message) })
           return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
         }
       }
@@ -1623,6 +1772,26 @@ window.__ModuleLoader__.load({
           return success(await dispatchVerify(args || {}))
         } catch (error) {
           return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
+        }
+      }
+      if (op === 'uiState') {
+        var patch = args && typeof args === 'object' ? args : {}
+        setPanelState({
+          state: typeof patch.state === 'string' ? patch.state : panelState.state,
+          message: typeof patch.message === 'string' ? patch.message : panelState.message,
+        })
+        return { ok: true }
+      }
+      if (op === 'openPanel') {
+        try {
+          if (!ctx || !ctx.sidebarRight || typeof ctx.sidebarRight.openTab !== 'function') {
+            return failure('E_UNSUPPORTED', 'sidebarRight.openTab is unavailable')
+          }
+          ctx.sidebarRight.openTab(PANEL_KIND, { revealIfOpened: true })
+          setPanelState({ registered: true })
+          return { ok: true }
+        } catch (error) {
+          return failure('E_UNSUPPORTED', 'cannot open the Browser Use panel: ' + cleanText(error && error.message))
         }
       }
       return failure('E_BAD_REQUEST', 'unknown browser command: ' + String(op))
@@ -1654,7 +1823,10 @@ window.__ModuleLoader__.load({
           }),
           signal: controller.signal,
         })
-        if (result.status === 200 && result.payload && result.payload.ok) return true
+        if (result.status === 200 && result.payload && result.payload.ok) {
+          setPanelState({ state: 'idle', message: '已连接' })
+          return true
+        }
         if (result.status === 401) {
           var unauthorized = new Error('bridge unauthorized')
           unauthorized.code = 'E_UNAUTHORIZED'
@@ -1756,6 +1928,100 @@ window.__ModuleLoader__.load({
             loop.dispose()
           }
         })
+
+        try {
+          var React = require('react')
+          ctx.inject(['slots', 'sidebarRightTabs'], function (scope) {
+            scope.effect(function () {
+              function BrowserUsePanel() {
+                var pair = React.useState(panelState)
+                var snapshot = pair[0]
+                var setSnapshot = pair[1]
+                React.useEffect(function () {
+                  return subscribePanel(setSnapshot)
+                }, [])
+                var h = React.createElement
+                var state = snapshot.state || 'idle'
+                var label = PANEL_STATE_LABELS[state] || state
+                var steps = (snapshot.steps || []).map(function (step, index) {
+                  var dotClass =
+                    'bu8f3a2c71_sd ' +
+                    (step.status === 'failed'
+                      ? 'bu8f3a2c71_sd_failed'
+                      : step.status === 'paused'
+                        ? 'bu8f3a2c71_sd_paused'
+                        : 'bu8f3a2c71_sd_ok')
+                  return h('div', { key: String(index) + '-' + step.time, className: 'bu8f3a2c71_step' }, [
+                    h('span', { key: 'd', className: dotClass }),
+                    h('span', { key: 't' }, step.text),
+                  ])
+                })
+                if (steps.length === 0) {
+                  steps = [h('div', { key: 'empty', className: 'bu8f3a2c71_empty' }, '暂无操作记录')]
+                }
+                return h('div', { className: 'bu8f3a2c71_root bu8f3a2c71_s_' + state }, [
+                  h('style', { key: 'css' }, PANEL_CSS),
+                  h('div', { key: 'head', className: 'bu8f3a2c71_head' }, [
+                    h('span', { key: 'dot', className: 'bu8f3a2c71_dot' }),
+                    h('span', { key: 'name', className: 'bu8f3a2c71_name' }, 'Browser Use'),
+                    h('span', { key: 'state', className: 'bu8f3a2c71_state' }, label),
+                    h(
+                      'button',
+                      {
+                        key: 'takeover',
+                        className: 'bu8f3a2c71_btn' + (snapshot.takeover ? ' on' : ''),
+                        onClick: function () {
+                          toggleTakeover()
+                        },
+                      },
+                      snapshot.takeover ? '交还 Agent' : '接管浏览器',
+                    ),
+                  ]),
+                  h('div', { key: 'page', className: 'bu8f3a2c71_page' }, [
+                    h('div', { key: 'title', className: 'bu8f3a2c71_title' }, snapshot.title || '尚未打开页面'),
+                    h('div', { key: 'url', className: 'bu8f3a2c71_url' }, snapshot.url || '在聊天里让 Agent 打开网页'),
+                  ]),
+                  h('div', { key: 'steps', className: 'bu8f3a2c71_steps' }, steps),
+                  h(
+                    'div',
+                    { key: 'foot', className: 'bu8f3a2c71_foot' },
+                    'C4 面板 · 审批使用 DSH 原生弹窗 · ' + (snapshot.generation || ''),
+                  ),
+                ])
+              }
+
+              var disposeType = scope.sidebarRightTabs.register({
+                id: PANEL_ID,
+                kind: PANEL_KIND,
+                title: PANEL_TITLE,
+                keepMounted: true,
+              })
+              var disposeSlot = scope.slots.register(
+                { name: 'sidebar.right.pane.tab', key: PANEL_ID },
+                BrowserUsePanel,
+              )
+              setPanelState({ registered: true })
+              return function () {
+                setPanelState({ registered: false })
+                try {
+                  disposeSlot()
+                } catch (error) {
+                  /* ignore */
+                }
+                try {
+                  disposeType()
+                } catch (error) {
+                  /* ignore */
+                }
+              }
+            })
+          })
+        } catch (error) {
+          setPanelState({
+            registered: false,
+            message: '面板不可用：' + cleanText(error && error.message),
+          })
+        }
       },
     }
   },

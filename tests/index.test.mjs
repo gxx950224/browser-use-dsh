@@ -81,6 +81,7 @@ test('apply wires tools, system prompt, meta injection and cleanup', async () =>
     [
       'browser_use_act',
       'browser_use_open',
+      'browser_use_panel',
       'browser_use_read',
       'browser_use_screenshot',
       'browser_use_status',
@@ -110,7 +111,7 @@ test('invalid config warns but still activates', () => {
   const { ctx, state } = fakeCtx()
   apply(ctx, { bridgePort: 999999, promptSection: false })
   assert.ok(state.warnings.some((warning) => warning.includes('bridgePort')))
-  assert.equal(state.tools.length, 6)
+  assert.equal(state.tools.length, 7)
   assert.deepEqual(
     state.injections.map((deps) => deps.join('+')),
     ['webServer'],

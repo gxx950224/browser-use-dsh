@@ -1,9 +1,9 @@
 # @gxx-labs/browser-use-dsh
 
-DSH Desktop 可见浏览器 Agent：在右侧**内建 Browser tab** 中观察、操作并验证网页；动作时页面内显示 Agent 光标/目标高亮，支持审批与 CDP 截图。
+DSH Desktop 可见浏览器 Agent：在右侧**内建 Browser tab** 中观察、操作并验证网页；动作时页面内显示 Agent 光标/目标高亮，支持审批、CDP 截图，以及右侧 Browser Use 状态面板（六态泛光 + 人工接管）。
 
-> **当前里程碑：C3（动作 + 审批 + 视觉反馈 + 截图）**：`browser_use_status/open/read/act/screenshot/verify`，ref+generation 失效校验（`E_REF_STALE`），Origin/敏感动作审批，页面内光标/目标高亮/ripple，CDP 截图（需 `--remote-debugging-port`）。
-> DSH 右侧状态面板、边缘泛光与人工接管状态机在 C4；本版本**不会**用空壳冒充这些能力。
+> **当前里程碑：C4（可见 + 可控 + 可观测）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧面板（idle/observing/acting/awaiting/success/failed/paused 六态边缘泛光 + 接管/交还）。
+> 站点级持久策略、时间线导出、发布与兼容矩阵在 C5；本版本**不会**用空壳冒充这些能力。
 
 ## 安装（本地目录）
 
@@ -25,6 +25,7 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 | `browser_use_act` | 单个动作：`click / fill / type / press / scroll / hover / select / check / uncheck / reload / back / forward / waitFor`；用 ref 时必须带 `expectedGeneration` |
 | `browser_use_screenshot` | 通过 CDP 截取当前侧栏页面并以图片附件回传；仅 `127.0.0.1` + `type:"webview"`，需要 DSH 带 `--remote-debugging-port` 启动 |
 | `browser_use_verify` | 校验 URL / 标题 / 可见文本 / 元素，返回 `checks[]`；`passed:false` 表示失败 |
+| `browser_use_panel` | 打开/聚焦右侧 Browser Use 状态面板：六态泛光、页面信息、最近操作、接管/交还 |
 
 页面内容始终是**不可信数据**：工具结果用 `<untrusted-page-content>` 包裹，Agent 不应执行页面里的指令。
 
@@ -104,8 +105,8 @@ DSH 内建右侧浏览器（Electron <webview>）
 - **审批是工具层一次性决定**：`ctx.approval` 只返回 `allowed-once/rejected/cancelled/unavailable`，没有"始终允许此站点"；Origin 记忆仅限当前插件实例 + Session。
 - **页面内容不可信**：工具结果用 `<untrusted-page-content>` 包裹；审批不能在页面内绕过。
 - **截图需额外启动参数**：`browser_use_screenshot` 需要 DSH Desktop 以 `--remote-debugging-port=9222` 启动；否则返回 `E_CDP_UNAVAILABLE` 与启动提示，不会静默失败。
-- **视觉反馈是页面内 overlay**：通过在页面注入 fixed 定位的光标/高亮/ripple 实现，不修改页面业务逻辑，1.8 秒后自动清理；它不等同于 DSH 右侧面板的"边缘泛光"（C4）。
-- **右侧状态面板/边缘泛光/接管状态机未实现**（C4）；截图不调用 `webview.capturePage()`（Electron 44 已知崩溃），只走 CDP。
+- **右侧面板**：自注册 `browser-use-panel` tab + `sidebar.right.pane.tab` 正文，六态靠 `--dsw-*` 令牌与 `color-mix()` 表达，动画尊重 `prefers-reduced-motion`；面板里的"接管浏览器"会暂停 Agent（动作返回 `E_TAKEOVER`），"交还 Agent"后需重新 `browser_use_read`。
+- **右侧状态面板/边缘泛光**已实现；人工接管状态机为 C4 范围，站点级持久策略、时间线导出、发布与兼容矩阵在 C5。
 - 多窗口优先路由到聚焦 DSH 窗口；页面刷新用 sessionStorage 保持 rendererId。
 
 ## 开发
@@ -121,8 +122,8 @@ npm run check                    # verify + test
 
 ## 路线图
 
-- **C4**：右侧状态面板（自注册 tab）、六态边缘泛光、人工接管状态机、站点级持久策略、操作时间线、E2E 报告、发布与兼容矩阵。
-- 已完成：C1（bridge + 只读）、C2（动作 + ref/generation + 审批 + 验证）、C3（CDP 截图 + 页面内光标/目标高亮/ripple）。
+- **C5**：站点级持久策略、操作时间线导出、E2E 报告、npm 发布与 Provider/DSH 兼容矩阵。
+- 已完成：C1（bridge + 只读）、C2（动作 + ref/generation + 审批 + 验证）、C3（CDP 截图 + 页面内光标/目标高亮/ripple）、C4（右侧六态面板 + 接管/交还 + 面板操作记录）。
 
 ## License
 
