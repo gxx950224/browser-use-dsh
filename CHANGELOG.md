@@ -3,6 +3,26 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.6.0 — 2026-10-18
+
+Feature-complete plus the in-page element picker (local install, not yet published to npm).
+
+### Added
+
+- Page-injected **「⌖ 选取元素」** floating button (Shadow DOM, top-right of the current
+  page): hover highlight, click to copy a `[Browser Use 元素引用]` block (URL / CSS selector /
+  role / accessible name / text / box / link) for asking questions or requesting edits in the
+  chat composer. Esc cancels; `config.floatingPickButton: false` disables it. The bridge meta
+  and `/v1/config` now carry feature flags, and the Client re-injects the button after
+  navigation.
+- `README`/`CHANGELOG`/`docs/probe.md` and the `0.6.0` version bump.
+
+### Notes
+
+- DSH's official Browser tab toolbar has **no extension slot** (only tab menu, document/file
+  actions and guide seats); the page-level button is the closest supported placement. Adding
+  a real toolbar button would require changing the official `ui-sidebar-browser`/app.asar.
+
 ## 0.5.0 — 2026-10-18
 
 Feature-complete C1–C4 milestone (local install, not yet published to npm).

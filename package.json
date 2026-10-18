@@ -1,6 +1,6 @@
 {
   "name": "@gxx-labs/browser-use-dsh",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "DSH Desktop 可见浏览器 Agent：在右侧内建 Browser 中观察/操作网页，带 Agent 光标、目标高亮、审批与可验证结果。",
   "type": "module",
   "main": "lib/index.js",

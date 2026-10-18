@@ -14,6 +14,7 @@ test('defaults: desktop bridge defaults are stable', () => {
   assert.equal(config.originApproval, 'ask')
   assert.equal(config.cdpPort, 9222)
   assert.equal(config.visualFeedback, true)
+  assert.equal(config.floatingPickButton, true)
   assert.deepEqual(config.trustedOrigins, [])
   assert.deepEqual(config.allowedOrigins, ['dsh-app://app'])
 })
@@ -30,6 +31,7 @@ test('invalid values fall back with warnings', () => {
     originApproval: 'maybe',
     cdpPort: 80,
     visualFeedback: 'yes',
+    floatingPickButton: 'yes',
   })
   assert.equal(config.bridgePort, DEFAULTS.bridgePort)
   assert.equal(config.commandTimeoutMs, DEFAULTS.commandTimeoutMs)
@@ -41,7 +43,8 @@ test('invalid values fall back with warnings', () => {
   assert.equal(config.originApproval, DEFAULTS.originApproval)
   assert.equal(config.cdpPort, DEFAULTS.cdpPort)
   assert.equal(config.visualFeedback, DEFAULTS.visualFeedback)
-  assert.equal(warnings.length, 10)
+  assert.equal(config.floatingPickButton, DEFAULTS.floatingPickButton)
+  assert.equal(warnings.length, 11)
 })
 
 test('valid overrides are kept and the desktop origin is always allowed', () => {
@@ -58,6 +61,7 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
     trustedOrigins: ['https://example.com/'],
     cdpPort: 9333,
     visualFeedback: false,
+    floatingPickButton: false,
   })
   assert.equal(config.bridgePort, 9900)
   assert.equal(config.commandTimeoutMs, 12000)
@@ -69,6 +73,7 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
   assert.equal(config.originApproval, 'off')
   assert.equal(config.cdpPort, 9333)
   assert.equal(config.visualFeedback, false)
+  assert.equal(config.floatingPickButton, false)
   assert.deepEqual(config.trustedOrigins, ['https://example.com'])
   assert.deepEqual(config.allowedOrigins, ['https://example.com', 'dsh-app://app'])
 })

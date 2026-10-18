@@ -199,7 +199,12 @@ window.__ModuleLoader__.load({
       var content = meta.getAttribute('content')
       var value = decodeBase64Json(content)
       if (!value || !value.token || !value.port) return null
-      return { version: value.version || PROTOCOL_VERSION, port: Number(value.port), token: String(value.token) }
+      return {
+        version: value.version || PROTOCOL_VERSION,
+        port: Number(value.port),
+        token: String(value.token),
+        features: value.features && typeof value.features === 'object' ? value.features : { floatingPickButton: true },
+      }
     }
 
     async function fetchJson(url, options) {
@@ -236,6 +241,10 @@ window.__ModuleLoader__.load({
               version: result.payload.version || PROTOCOL_VERSION,
               port: Number(result.payload.port) || port,
               token: String(result.payload.token),
+              features:
+                result.payload.features && typeof result.payload.features === 'object'
+                  ? result.payload.features
+                  : { floatingPickButton: true },
             }
             return bridgeInfo
           }
@@ -455,6 +464,25 @@ window.__ModuleLoader__.load({
           }
         }
       })
+    }
+
+    var lastFloatingUrl = ''
+
+    async function ensureFloatingButton() {
+      try {
+        if (!bridgeInfo || !bridgeInfo.token) return
+        var features = bridgeInfo.features || {}
+        if (features.floatingPickButton === false) return
+        var target = findBestWebview(null)
+        if (!target) return
+        var result = await executeInPage(target, '(' + floatingButton.toString() + ')()', 5000)
+        if (result && result.injected && lastFloatingUrl !== webviewUrl(target)) {
+          lastFloatingUrl = webviewUrl(target)
+          pushPanelStep('元素选取按钮已注入', 'done')
+        }
+      } catch (error) {
+        /* page may be loading or has navigated */
+      }
     }
 
     /* ------------------------------------------------------------------ *
@@ -1342,9 +1370,303 @@ window.__ModuleLoader__.load({
       }
     }
 
-    /* ------------------------------------------------------------------ *
-     * Command dispatch
-     * ------------------------------------------------------------------ */
+    function floatingButton() {
+      var HOST_ID = 'dsh-browser-use-pick-host'
+      if (document.getElementById(HOST_ID)) return { ok: true, reused: true }
+      var host = document.createElement('div')
+      host.id = HOST_ID
+      host.style.cssText = 'position:fixed;top:10px;right:10px;z-index:2147483646;'
+      var root = host.attachShadow ? host.attachShadow({ mode: 'open' }) : host
+      var previousCursor = ''
+      var active = false
+      var current = null
+      var toastTimer = 0
+      var highlight = null
+      var label = null
+
+      function normalize(value, limit) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, limit || 120)
+      }
+
+      function escapeSelector(value) {
+        if (window.CSS && window.CSS.escape) return window.CSS.escape(value)
+        return String(value).replace(/([^\w-])/g, '\\$1')
+      }
+
+      function selectorOf(element) {
+        try {
+          if (!element || element.nodeType !== 1) return ''
+          if (element.id) return '#' + escapeSelector(element.id)
+          var parts = []
+          var node = element
+          var depth = 0
+          while (node && node.nodeType === 1 && node !== document.body && depth < 6) {
+            var testid = node.getAttribute('data-testid')
+            if (testid) {
+              parts.unshift('[data-testid="' + String(testid).replace(/"/g, '\\"') + '"]')
+              break
+            }
+            var nameAttr = node.getAttribute('name')
+            if (nameAttr && ['input', 'select', 'textarea', 'form'].indexOf(node.tagName.toLowerCase()) >= 0) {
+              parts.unshift(node.tagName.toLowerCase() + '[name="' + String(nameAttr).replace(/"/g, '\\"') + '"]')
+              break
+            }
+            var part = node.tagName.toLowerCase()
+            var parent = node.parentElement
+            if (parent) {
+              var sameTag = 0
+              var index = 0
+              for (var i = 0; i < parent.children.length; i += 1) {
+                if (parent.children[i].tagName === node.tagName) {
+                  sameTag += 1
+                  if (parent.children[i] === node) index = sameTag
+                }
+              }
+              if (sameTag > 1) part += ':nth-of-type(' + index + ')'
+            }
+            parts.unshift(part)
+            node = parent
+            depth += 1
+          }
+          return parts.join(' > ')
+        } catch (error) {
+          return ''
+        }
+      }
+
+      function describe(element) {
+        var rect = element.getBoundingClientRect()
+        var tag = element.tagName.toLowerCase()
+        var role =
+          element.getAttribute('role') ||
+          (tag === 'a'
+            ? 'link'
+            : tag === 'button'
+              ? 'button'
+              : tag === 'input'
+                ? element.type === 'checkbox'
+                  ? 'checkbox'
+                  : 'textbox'
+                : tag === 'select'
+                  ? 'combobox'
+                  : tag)
+        var name = ''
+        try {
+          name =
+            element.getAttribute('aria-label') ||
+            element.getAttribute('title') ||
+            element.getAttribute('placeholder') ||
+            element.innerText ||
+            element.textContent ||
+            ''
+        } catch (error) {
+          name = ''
+        }
+        var text = ''
+        try {
+          text = element.innerText || element.textContent || ''
+        } catch (error) {
+          text = ''
+        }
+        return {
+          selector: selectorOf(element),
+          tag: tag,
+          role: role,
+          name: normalize(name, 120),
+          text: normalize(text, 300),
+          ref: element.getAttribute('data-dsh-bu-ref') || undefined,
+          href: tag === 'a' && element.href ? element.href : undefined,
+          box: {
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            w: Math.round(rect.width),
+            h: Math.round(rect.height),
+          },
+        }
+      }
+
+      function buildReference(info) {
+        var lines = ['[Browser Use 元素引用]']
+        lines.push('页面: ' + location.href)
+        if (info.selector) lines.push('选择器: ' + info.selector)
+        lines.push('角色: ' + info.role)
+        if (info.name) lines.push('可读名: ' + info.name)
+        if (info.text) lines.push('文本: ' + info.text)
+        lines.push(
+          '位置: x=' + info.box.x + ' y=' + info.box.y + ' w=' + info.box.w + ' h=' + info.box.h,
+        )
+        if (info.ref) lines.push('Ref: ' + info.ref)
+        if (info.href) lines.push('链接: ' + info.href)
+        return lines.join('\n')
+      }
+
+      function fallbackCopy(text) {
+        try {
+          var textarea = document.createElement('textarea')
+          textarea.value = text
+          textarea.style.cssText = 'position:fixed;left:-9999px;top:0;'
+          ;(root === host ? host : root).appendChild(textarea)
+          textarea.select()
+          var ok = document.execCommand('copy')
+          textarea.remove()
+          return Boolean(ok)
+        } catch (error) {
+          return false
+        }
+      }
+
+      function copyText(text) {
+        return new Promise(function (resolve) {
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).then(
+                function () {
+                  resolve(true)
+                },
+                function () {
+                  resolve(fallbackCopy(text))
+                },
+              )
+              return
+            }
+          } catch (error) {
+            /* fall back */
+          }
+          resolve(fallbackCopy(text))
+        })
+      }
+
+      function showToast(message, ms) {
+        if (toastTimer) clearTimeout(toastTimer)
+        toast.textContent = message
+        toast.style.display = 'block'
+        toastTimer = window.setTimeout(function () {
+          toast.style.display = 'none'
+        }, ms || 2600)
+      }
+
+      function cleanupPick() {
+        active = false
+        document.removeEventListener('mousemove', onMove, true)
+        document.removeEventListener('click', onClick, true)
+        document.removeEventListener('keydown', onKey, true)
+        try {
+          document.documentElement.style.cursor = previousCursor
+        } catch (error) {
+          /* ignore */
+        }
+        if (highlight && highlight.parentNode) highlight.parentNode.removeChild(highlight)
+        if (label && label.parentNode) label.parentNode.removeChild(label)
+        highlight = null
+        label = null
+        current = null
+        pill.textContent = '⌖ 选取元素'
+      }
+
+      function onKey(event) {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          cleanupPick()
+          showToast('已取消选取')
+        }
+      }
+
+      function onMove(event) {
+        if (!active) return
+        var element = document.elementFromPoint(event.clientX, event.clientY)
+        if (!element || element === host || (host.contains && host.contains(element))) return
+        var rect = element.getBoundingClientRect()
+        if (rect.width < 2 || rect.height < 2) return
+        current = element
+        if (!highlight) {
+          highlight = document.createElement('div')
+          highlight.style.cssText =
+            'position:fixed;pointer-events:none;z-index:2147483647;border:2px solid #7ca0ff;border-radius:8px;box-shadow:0 0 0 4px rgba(124,160,255,.18),0 0 24px rgba(124,160,255,.45);'
+          root.appendChild(highlight)
+        }
+        highlight.style.left = rect.x - 3 + 'px'
+        highlight.style.top = rect.y - 3 + 'px'
+        highlight.style.width = rect.width + 6 + 'px'
+        highlight.style.height = rect.height + 6 + 'px'
+        if (!label) {
+          label = document.createElement('div')
+          label.style.cssText =
+            'position:fixed;pointer-events:none;z-index:2147483647;background:rgba(15,22,36,.92);color:#dce8ff;border:1px solid rgba(140,170,255,.45);border-radius:6px;padding:2px 7px;font:11px "Segoe UI","Microsoft YaHei",sans-serif;white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis;'
+          root.appendChild(label)
+        }
+        var info = describe(element)
+        label.textContent = (info.role || info.tag) + (info.name ? ' · ' + info.name : '')
+        label.style.left = Math.max(8, rect.x) + 'px'
+        label.style.top = Math.max(8, rect.y - 26) + 'px'
+      }
+
+      function onClick(event) {
+        if (!active) return
+        event.preventDefault()
+        event.stopPropagation()
+        event.stopImmediatePropagation()
+        var element = current || document.elementFromPoint(event.clientX, event.clientY)
+        if (!element) {
+          cleanupPick()
+          return
+        }
+        var info = describe(element)
+        var text = buildReference(info)
+        copyText(text).then(function (ok) {
+          showToast(ok ? '已复制元素引用，粘贴到聊天框提问或修改' : '复制失败，请手动复制')
+        })
+        cleanupPick()
+      }
+
+      function startPick() {
+        if (active) return
+        active = true
+        previousCursor = document.documentElement.style.cursor || ''
+        document.documentElement.style.cursor = 'crosshair'
+        document.addEventListener('mousemove', onMove, true)
+        document.addEventListener('click', onClick, true)
+        document.addEventListener('keydown', onKey, true)
+        pill.textContent = '点击页面元素… Esc 取消'
+        showToast('点击页面元素以复制引用；Esc 取消', 3200)
+      }
+
+      var pill = document.createElement('button')
+      pill.type = 'button'
+      pill.textContent = '⌖ 选取元素'
+      pill.setAttribute('aria-label', '指向网页元素并复制引用，用于提问或请求修改')
+      pill.style.cssText =
+        'all:initial;position:fixed;top:10px;right:10px;z-index:2147483646;display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;border:1px solid rgba(140,170,255,.55);background:rgba(15,22,36,.88);color:#dce8ff;font:12px "Segoe UI","Microsoft YaHei UI",sans-serif;cursor:pointer;box-shadow:0 8px 24px -12px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.06) inset;backdrop-filter:blur(8px);'
+      pill.title = '指向网页元素以提问或请求修改（复制引用到剪贴板）'
+      pill.addEventListener('mouseenter', function () {
+        pill.style.background = 'rgba(40,70,130,.92)'
+      })
+      pill.addEventListener('mouseleave', function () {
+        pill.style.background = 'rgba(15,22,36,.88)'
+      })
+      pill.addEventListener('click', function (event) {
+        event.preventDefault()
+        event.stopPropagation()
+        if (active) {
+          cleanupPick()
+          showToast('已取消选取')
+        } else {
+          startPick()
+        }
+      })
+
+      var toast = document.createElement('div')
+      toast.style.cssText =
+        'display:none;position:fixed;top:46px;right:10px;z-index:2147483647;background:rgba(15,22,36,.94);color:#dce8ff;border:1px solid rgba(140,170,255,.4);border-radius:8px;padding:6px 10px;font:11.5px "Segoe UI","Microsoft YaHei UI",sans-serif;box-shadow:0 10px 28px -14px rgba(0,0,0,.9);max-width:300px;'
+      root.appendChild(pill)
+      root.appendChild(toast)
+      document.documentElement.appendChild(host)
+      return { ok: true, injected: true }
+    }
+
+
 
     var generation = 0
 
@@ -1391,6 +1713,9 @@ window.__ModuleLoader__.load({
           state: panelState.state,
           takeover: panelState.takeover,
           steps: panelState.steps.length,
+          recent: (panelState.steps || []).slice(0, 3).map(function (step) {
+            return step.text
+          }),
         },
         hint:
           webviews.length === 0
@@ -1706,7 +2031,9 @@ window.__ModuleLoader__.load({
       if (op === 'open') {
         setPanelState({ state: 'observing', message: '打开页面' })
         try {
-          return success(await dispatchOpen(ctx, args || {}))
+          var openResult = await dispatchOpen(ctx, args || {})
+          void ensureFloatingButton()
+          return success(openResult)
         } catch (error) {
           setPanelState({ state: 'failed', message: cleanText(error && error.message) })
           return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
@@ -1825,6 +2152,7 @@ window.__ModuleLoader__.load({
         })
         if (result.status === 200 && result.payload && result.payload.ok) {
           setPanelState({ state: 'idle', message: '已连接' })
+          void ensureFloatingButton()
           return true
         }
         if (result.status === 401) {
@@ -1883,6 +2211,7 @@ window.__ModuleLoader__.load({
             }
             await handshake(current)
             backoff = RECONNECT_MIN_MS
+            void ensureFloatingButton()
             while (!disposed) {
               var command = await poll(current)
               if (disposed) return
@@ -1906,10 +2235,19 @@ window.__ModuleLoader__.load({
 
       void run()
 
+      var floatingTimer = window.setInterval(function () {
+        if (!disposed) void ensureFloatingButton()
+      }, 4000)
+
       return {
         rendererId: rendererId,
         dispose: function () {
           disposed = true
+          try {
+            window.clearInterval(floatingTimer)
+          } catch (error) {
+            /* ignore */
+          }
           controller.abort()
         },
       }
