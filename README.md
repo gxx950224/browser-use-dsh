@@ -2,7 +2,7 @@
 
 DSH Desktop 可见协作/批注层：在右侧**内建 Browser tab** 中把 Agent 的观察、操作、批注与审批可视化；动作时页面内显示 Agent 光标/目标高亮，支持审批、CDP 截图、右侧状态面板（六态泛光 + 人工接管）。**它不是官方 Browser Use Provider 的替代品。**
 
-> **版本 0.9.3（可见协作/批注层，正式上线硬化 + 回归入口）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧六态面板 + 接管/交还，页面右上角「⌖ 选取元素」批注流程（多批注 → **默认只插入聊天草稿，由用户检查后发送**；可配置自动发送）。
+> **版本 0.9.5（可见协作/批注层，正式上线硬化 + 回归入口 + CDP 自动发现）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧六态面板 + 接管/交还，页面右上角「⌖ 选取元素」批注流程（多批注 → **默认只插入聊天草稿，由用户检查后发送**；可配置自动发送）。
 > 官方内建 Browser 工具栏没有可注入的 slot，因此按钮放在网页内容右上角；可用 `floatingPickButton: false` 关闭。本仓库已完成构建/测试/打包校验；**尚未执行 npm publish**。发布就绪度见 [docs/release-readiness.md](docs/release-readiness.md)。
 
 ## 与官方 Browser Use 的关系
@@ -47,7 +47,7 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 | `browser_use_open` | 在侧栏 Browser 中打开/复用 http(s) URL，等待加载完成；新 Origin 可能触发审批 |
 | `browser_use_read` | `mode:"ax"` 返回带稳定 `ref`（`eN`）、CSS 像素 box 与 `generation` 的语义节点；`text` / `links` / `html` 返回受限内容 |
 | `browser_use_act` | 单个动作：`click / fill / type / press / scroll / hover / select / check / uncheck / setText / reload / back / forward / waitFor`；用 ref 时必须带 `expectedGeneration`；`setText` 仅改本地 DOM 且默认需要审批 |
-| `browser_use_screenshot` | 通过 CDP 截取当前侧栏页面并以图片附件回传；仅 `127.0.0.1` + `type:"webview"`，需要 DSH 带 `--remote-debugging-port` 启动 |
+| `browser_use_screenshot` | 通过 CDP 截取当前侧栏页面并以图片附件回传；仅 `127.0.0.1` + `type:"webview"`，需要 DSH 带 `--remote-debugging-port` 启动；端口被占用时自动尝试 9223/9333/9334/9224/9225 |
 | `browser_use_verify` | 校验 URL / 标题 / 可见文本 / 元素，返回 `checks[]`；`passed:false` 表示失败 |
 | `browser_use_panel` | 打开/聚焦右侧 Browser Use 状态面板；传 `takeover: true/false` 可把控制权交给用户或交还 Agent |
 
@@ -96,7 +96,7 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 | `annotationSendMode` | `insert` | 批注送入聊天框的方式：`insert` 只插入草稿（安全默认，用户检查后发送）；`submit` 插入后立即发送（旧行为） |
 | `originApproval` | `ask` | 每个 Session 首次访问新 Origin（含跨站链接）询问；`off` 关闭 |
 | `trustedOrigins` | `[]` | 直接放行的 Origin 白名单（跳过新 Origin 审批，不跳过敏感动作审批） |
-| `cdpPort` | `9222` | 截图用的回环 CDP 端口；需 DSH 以 `--remote-debugging-port=9222` 启动 |
+| `cdpPort` | `9222` | 截图的首选回环 CDP 端口；被占用时自动尝试 9223/9333/9334/9224/9225。DSH 需以 `--remote-debugging-port=<port>` 启动 |
 | `visualFeedback` | `true` | 动作时在页面内显示 Agent 光标/目标高亮/ripple（尊重 `prefers-reduced-motion`） |
 | `floatingPickButton` | `true` | 在当前网页右上角注入「⌖ 选取元素」批注按钮；可用 `annotationSendMode` 控制只插入还是自动发送 |
 | `commandTimeoutMs` | `30000` | 单次浏览器命令超时 |

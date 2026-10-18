@@ -3,6 +3,12 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.5 — 2026-10-18
+
+- CDP auto-discovery: if the configured port is occupied (for example `verge-mihomo.exe`
+  listening on 9222), probe 9223/9333/9334/9224/9225 and use the first endpoint with a
+  `webview` target. `browser_use_status.cdp.port` reports the discovered port.
+
 ## 0.9.4 — 2026-10-18
 
 - Fixed the Browser Use panel staying in `awaiting` after an approval was rejected or the
