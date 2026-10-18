@@ -182,6 +182,37 @@ test('remote errors reject the pending command', async () => {
   }
 })
 
+test('multiple clients: focused renderer is preferred', async () => {
+  const bridge = await startBridge({ pollTimeoutMs: 400 })
+  try {
+    await handshake(bridge, 'r1')
+    await handshake(bridge, 'r2')
+    const poll = fetch(`http://127.0.0.1:${bridge.port}/v1/poll?rendererId=r2&focused=1`, {
+      headers: { Authorization: `Bearer ${bridge.token}` },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 120))
+    assert.equal(bridge.pickClient().rendererId, 'r2')
+    await bridge.stop()
+    await poll.catch(() => {})
+  } finally {
+    await bridge.stop()
+  }
+})
+
+test('multiple clients without focus fail explicitly', async () => {
+  const bridge = await startBridge()
+  try {
+    await handshake(bridge, 'r1')
+    await handshake(bridge, 'r2')
+    assert.throws(
+      () => bridge.pickClient(),
+      (error) => error && error.code === 'E_MULTIPLE_RENDERERS',
+    )
+  } finally {
+    await bridge.stop()
+  }
+})
+
 test('stop rejects queued work and rejects later sends', async () => {
   const bridge = await startBridge()
   await handshake(bridge)

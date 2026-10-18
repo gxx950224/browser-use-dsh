@@ -4,18 +4,21 @@
 
 | # | 探针 | 期望 | 实测 | 结论 |
 |---|---|---|---|---|
-| 1 | 插件加载 | 完全重启后 Config 清单出现 `browser-use-dsh` 行，无加载错误 | | 待填 |
-| 2 | Host 桥监听 | `browser_use_status` 返回 `bridge.ready:true`，端口与配置一致 | | 待填 |
-| 3 | Client 在线 | 新会话 `browser_use_status` 返回 `bridge.online:true` 与 `client.webviewCount≥1` | | 待填 |
-| 4 | 侧栏浏览器打开 | `browser_use_open {url:"https://example.com/"}` 打开/复用右侧 Browser tab | | 待填 |
-| 5 | AX 读取 | `browser_use_read {mode:"ax"}` 返回节点、`eN` ref 与 box，内容包在 `<untrusted-page-content>` | | 待填 |
-| 6 | text/links | `read {mode:"text"}`、`{mode:"links"}` 返回正文/链接且截断生效 | | 待填 |
-| 7 | 复用 tab | 同一 URL 再次 open 不新建重复 tab（`reused:true` 或复用现有 webview） | | 待填 |
-| 8 | 导航后 ref | 打开另一个 URL 后旧 `eN` ref 不再可信（C2 将返回 `E_REF_STALE`） | | 待填 |
-| 9 | 多窗口 | 打开第二个 DSH 窗口后调用工具返回 `E_MULTIPLE_RENDERERS` 而不是猜 | | 待填 |
+| 1 | 插件加载 | 完全重启后 Config 清单出现 `browser-use-dsh` 行，无加载错误 | 2026-10-18：`install_bundle` 返回 `application:"applied"`；当前会话直接出现 `browser_use_*` 工具与 Browser Use 系统提示（Host HMR 生效） | 通过 |
+| 2 | Host 桥监听 | `browser_use_status` 返回 `bridge.ready:true`，端口与配置一致 | 2026-10-18：`bridge.ready:true`、`port:8817`、`startError:null` | 通过 |
+| 3 | Client 在线 | 新会话 `browser_use_status` 返回 `bridge.online:true` 与 `client.webviewCount≥1` | 2026-10-18：`online:true`、Client `href:"dsh-app://app/"`；初始 `webviewCount:0`（未开浏览器 tab） | 通过 |
+| 4 | 侧栏浏览器打开 | `browser_use_open {url:"https://example.com/"}` 打开/复用右侧 Browser tab | 2026-10-18：返回 `title:"Example Domain"`、`generation:"g-1"`、`webviewCount:1` | 通过 |
+| 5 | AX 读取 | `browser_use_read {mode:"ax"}` 返回节点、`eN` ref 与 box，内容包在 `<untrusted-page-content>` | 2026-10-18：返回 13 个节点（含 `e13 link "Learn more"` 与 CSS box），正文包裹生效 | 通过 |
+| 6 | text/links | `read {mode:"text"}`、`{mode:"links"}` 返回正文/链接且截断生效 | `links` 首测失败：页面内函数引用了外部作用域（`E_EXECUTE_FAILED`），已修复为自包含函数；待刷新 Client 后复测 | 待复测 |
+| 7 | 复用 tab | 同一 URL 再次 open 不新建重复 tab（`reused:true` 或复用现有 webview） | 2026-10-18：第二次 open 返回 `reused:true`、`webviewCount:1`、`generation:"g-2"` | 通过 |
+| 8 | 导航后 ref | 打开另一个 URL 后旧 `eN` ref 不再可信（C2 将返回 `E_REF_STALE`） | | 待填（C2） |
+| 9 | 多窗口 | 打开第二个 DSH 窗口后调用工具返回 `E_MULTIPLE_RENDERERS` 而不是猜 | 2026-10-18：出现多 renderer 时确实返回 `E_MULTIPLE_RENDERERS`；随后已加"聚焦窗口优先"路由与 sessionStorage 稳定 rendererId，待重启后复测 | 部分通过 |
 | 10 | 重启恢复 | 完全重启 DSH 后插件重新加载，Client 重新握手，无孤儿端口 | | 待填 |
 | 11 | Web profile | Web profile 下 `browser_use_status` 报 Client 离线 / `supported:false`，不崩溃 | | 待填 |
 | 12 | 卸载清理 | 卸载插件并重启后桥端口释放，无残留进程 | | 待填 |
+
+> 2026-10-18 实机结论：Host 半经 HMR 生效、Client 半在打开中的 DSH 页面内自动激活；`status/open/read(ax)` 与 tab 复用均通过。
+> 首轮发现并修复了两个真实问题：① `links` 页面内函数未内联工具函数；② 页面热更新/刷新产生新 rendererId 导致短暂 `E_MULTIPLE_RENDERERS`（改为 sessionStorage 持久 rendererId + 聚焦窗口优先路由；Host 改动需完全重启后生效）。
 
 ## 真机步骤
 

@@ -29,13 +29,26 @@ window.__ModuleLoader__.load({
 
     function makeRendererId() {
       try {
+        var saved = sessionStorage.getItem('dsh-browser-use-renderer')
+        if (saved) return saved
+      } catch (error) {
+        /* storage may be unavailable */
+      }
+      var id
+      try {
         if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-          return crypto.randomUUID()
+          id = crypto.randomUUID()
         }
       } catch (error) {
-        /* fall through */
+        id = null
       }
-      return 'renderer-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10)
+      if (!id) id = 'renderer-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10)
+      try {
+        sessionStorage.setItem('dsh-browser-use-renderer', id)
+      } catch (error) {
+        /* ignore */
+      }
+      return id
     }
 
     function safeCall(fn, fallback) {
@@ -592,12 +605,18 @@ window.__ModuleLoader__.load({
       var maxLinks = (options && options.maxLinks) || 200
       var links = []
       var anchors = document.querySelectorAll('a[href]')
+      function normalize(value) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 160)
+      }
       for (var i = 0; i < anchors.length && links.length < maxLinks; i += 1) {
         var anchor = anchors[i]
         var rect = anchor.getBoundingClientRect()
         if (rect.width < 1 || rect.height < 1) continue
         links.push({
-          text: normalize(anchor.innerText || anchor.textContent).slice(0, 160),
+          text: normalize(anchor.innerText || anchor.textContent),
           href: anchor.href,
           box: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
         })
@@ -856,7 +875,13 @@ window.__ModuleLoader__.load({
           cache: 'no-store',
           credentials: 'omit',
           headers: authHeaders(info),
-          body: JSON.stringify({ rendererId: rendererId, platform: 'web', protocol: PROTOCOL_VERSION, href: location.href }),
+          body: JSON.stringify({
+            rendererId: rendererId,
+            platform: 'web',
+            protocol: PROTOCOL_VERSION,
+            focused: document.hasFocus(),
+            href: location.href,
+          }),
           signal: controller.signal,
         })
         if (result.status === 200 && result.payload && result.payload.ok) return true
@@ -870,7 +895,7 @@ window.__ModuleLoader__.load({
 
       async function poll(info) {
         var response = await fetch(
-          bridgeBase(info) + '/v1/poll?rendererId=' + encodeURIComponent(rendererId),
+          bridgeBase(info) + '/v1/poll?rendererId=' + encodeURIComponent(rendererId) + '&focused=' + (document.hasFocus() ? '1' : '0'),
           {
             method: 'GET',
             mode: 'cors',
