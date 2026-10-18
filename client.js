@@ -467,21 +467,38 @@ window.__ModuleLoader__.load({
     }
 
     var lastFloatingUrl = ''
+    var lastFloatingError = ''
 
     async function ensureFloatingButton() {
       try {
         if (!bridgeInfo || !bridgeInfo.token) return
         var features = bridgeInfo.features || {}
-        if (features.floatingPickButton === false) return
+        if (features.floatingPickButton === false) {
+          setPanelState({ pickButton: { enabled: false } })
+          return
+        }
         var target = findBestWebview(null)
         if (!target) return
         var result = await executeInPage(target, '(' + floatingButton.toString() + ')()', 5000)
-        if (result && result.injected && lastFloatingUrl !== webviewUrl(target)) {
+        setPanelState({
+          pickButton: {
+            enabled: true,
+            url: webviewUrl(target),
+            injected: Boolean(result && result.injected),
+            reused: Boolean(result && result.reused),
+          },
+        })
+        if (result && (result.injected || result.reused) && lastFloatingUrl !== webviewUrl(target)) {
           lastFloatingUrl = webviewUrl(target)
           pushPanelStep('元素选取按钮已注入', 'done')
         }
       } catch (error) {
-        /* page may be loading or has navigated */
+        var message = String((error && error.message) || error)
+        setPanelState({ pickButton: { enabled: true, error: message.slice(0, 200) } })
+        if (message !== lastFloatingError) {
+          lastFloatingError = message
+          pushPanelStep('选取按钮注入失败: ' + message.slice(0, 80), 'failed')
+        }
       }
     }
 
@@ -1716,6 +1733,7 @@ window.__ModuleLoader__.load({
           recent: (panelState.steps || []).slice(0, 3).map(function (step) {
             return step.text
           }),
+          pickButton: panelState.pickButton,
         },
         hint:
           webviews.length === 0
