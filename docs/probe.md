@@ -29,7 +29,7 @@
 | 23 | 六态泛光 | idle/observing/acting/awaiting/success/failed/paused 各有对应面板泛光 | 面板已注册；六态视觉与动画待用户确认 | 部分通过 |
 | 24 | 接管/交还 | 面板"接管浏览器"后 Agent 动作返回 `E_TAKEOVER`；"交还 Agent"后需重新 read | 面板按钮已渲染；接管后 E_TAKEOVER 分支待用户点击面板按钮后复测 | 待复测 |
 | 25 | 本地 E2E 全流程 | open → read → fill/select/check/click → verify → reload → type → waitFor → ref 失效 | 2026-10-18：用 `examples/serve-test-page.mjs` + 临时覆盖 bundle（trustedOrigins + approval off）跑通；测试后已移除覆盖 bundle，配置恢复 `sensitive/ask` | 通过 |
-| 26 | 页面内选取按钮 | 页面右上角出现「⌖ 选取元素」；点击进入选取，悬停高亮，点击元素复制引用，Esc 取消；`floatingPickButton:false` 时消失 | 待真机点击确认（注入后 `status.client.panel.recent` 应出现「元素选取按钮已注入」） | 待验证（0.6.0） |
+| 26 | 页面内批注流程 | 右上角「⌖ 选取元素」→ 悬停高亮 → 点击锁定（蓝框 + 编号气泡）→ 评论框（Enter 添加 / Ctrl+Enter 发送 / Esc 取消）→ 多条批注 → 发送复制含 `上下文` 的引用 | 待真机点击确认（注入后 `status.client.panel.recent` 应出现「批注选取按钮已注入」） | 待验证（0.7.0） |
 
 > 2026-10-18 C2 实机进展：remove_bundle + install_bundle 后 Host 半加载 C2（工具/提示词已更新，`capabilities.act/verify:true`）。
 > 重建插件后 Sidebar webview 随页面重载消失，`browser_use_open` 触发"新 Origin 审批"时，**本会话的审批策略为 `never`，审批被确定性拒绝并返回 `E_APPROVAL_DENIED`**——这正是 fail-closed 设计，说明 Origin 门禁已生效；也意味着 act/verify 的真机动作需要先把审批策略切回 `ask`（或手动打开侧栏浏览器页、或配置 `trustedOrigins`）才能复测。

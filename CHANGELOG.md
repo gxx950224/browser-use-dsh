@@ -3,6 +3,25 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.7.0 — 2026-10-18
+
+Codex-like element annotation flow (local install, not yet published to npm).
+
+### Added
+
+- The floating **⌖ 选取元素** button now opens a Codex-style annotation flow instead of
+  copying immediately:
+  - hover a page element, click to lock it with a blue outline and a numbered blue marker;
+  - an anchored white comment pill appears (`添加评论…`) with Enter = add, Ctrl+Enter =
+    add and send all, Esc = cancel;
+  - multiple annotations are kept in a bottom `正在批注 · N` bar with 发送 / 清除;
+  - sending copies `[Browser Use 批注 · N 条]` with every comment, `选择器`, `角色`,
+    `可读名`, `文本`, `位置`, and a new **`上下文`** line (nearest card/section heading,
+    e.g. `AI Native 应用开发底座`) to the clipboard, then resets the annotations;
+  - overlays reposition on scroll/resize and the old single-shot pick host is removed.
+- This fixes the earlier ambiguity where six identical Harness card footers could not be
+  distinguished from the copied reference alone.
+
 ## 0.6.0 — 2026-10-18
 
 Feature-complete plus the in-page element picker (local install, not yet published to npm).

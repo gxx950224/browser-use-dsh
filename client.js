@@ -479,7 +479,7 @@ window.__ModuleLoader__.load({
         }
         var target = findBestWebview(null)
         if (!target) return
-        var result = await executeInPage(target, '(' + floatingButton.toString() + ')()', 5000)
+        var result = await executeInPage(target, '(' + floatingAnnotator.toString() + ')()', 5000)
         setPanelState({
           pickButton: {
             enabled: true,
@@ -490,7 +490,7 @@ window.__ModuleLoader__.load({
         })
         if (result && (result.injected || result.reused) && lastFloatingUrl !== webviewUrl(target)) {
           lastFloatingUrl = webviewUrl(target)
-          pushPanelStep('元素选取按钮已注入', 'done')
+          pushPanelStep('批注选取按钮已注入', 'done')
         }
       } catch (error) {
         var message = String((error && error.message) || error)
@@ -1385,6 +1385,563 @@ window.__ModuleLoader__.load({
         url: location.href,
         title: document.title,
       }
+    }
+
+    function floatingAnnotator() {
+      var HOST_ID = 'dsh-browser-use-annotator'
+      var LEGACY_ID = 'dsh-browser-use-pick-host'
+      if (document.getElementById(HOST_ID)) return { ok: true, reused: true }
+      var legacy = document.getElementById(LEGACY_ID)
+      if (legacy && legacy.parentNode) legacy.parentNode.removeChild(legacy)
+
+      var host = document.createElement('div')
+      host.id = HOST_ID
+      host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483645;'
+      var root = host.attachShadow ? host.attachShadow({ mode: 'open' }) : host
+      var style = document.createElement('style')
+      style.textContent =
+        '.toolbar{position:fixed;top:10px;right:10px;z-index:2147483646;pointer-events:auto;display:flex;gap:8px;align-items:center}' +
+        '.pick{all:initial;display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:999px;border:1px solid rgba(77,139,255,.55);background:rgba(20,30,50,.9);color:#dce8ff;font:12px "Segoe UI","Microsoft YaHei UI",sans-serif;cursor:pointer;box-shadow:0 8px 24px -12px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.06) inset;backdrop-filter:blur(8px)}' +
+        '.pick:hover{background:rgba(40,70,130,.94)}' +
+        '.layer{position:fixed;inset:0;pointer-events:none;z-index:2147483644}' +
+        '.hover{position:fixed;border:2px solid rgba(77,139,255,.95);border-radius:6px;pointer-events:none;display:none;box-shadow:0 0 0 1px rgba(77,139,255,.25),0 0 0 4px rgba(77,139,255,.16)}' +
+        '.anno{position:fixed;border:2px solid #4d8bff;border-radius:6px;pointer-events:none;box-sizing:border-box;box-shadow:0 0 0 4px rgba(77,139,255,.14)}' +
+        '.marker{position:fixed;width:22px;height:22px;border-radius:50% 50% 50% 4px;background:#4d8bff;color:#fff;font:600 11px/22px "Segoe UI",sans-serif;text-align:center;pointer-events:none;box-shadow:0 4px 12px rgba(20,60,160,.45)}' +
+        '.pop{position:fixed;z-index:2147483647;pointer-events:auto;background:#fff;border:1px solid #e2e8f2;border-radius:14px;box-shadow:0 18px 50px -18px rgba(20,40,80,.5),0 0 0 1px rgba(20,40,80,.04);padding:8px 8px 6px;font:13px "Segoe UI","Microsoft YaHei UI",sans-serif;color:#1b2433;display:none}' +
+        '.row{display:flex;align-items:center;gap:8px}' +
+        '.grip{flex:0 0 auto;color:#8a94a6;display:flex;align-items:center;justify-content:center;width:22px;height:22px}' +
+        '.comment{flex:1;min-width:0;border:0;outline:0;font:13px "Segoe UI","Microsoft YaHei UI",sans-serif;color:#1b2433;background:transparent;padding:6px 2px}' +
+        '.comment::placeholder{color:#98a3b5}' +
+        '.mic{flex:0 0 auto;color:#98a3b5;width:24px;height:24px;display:flex;align-items:center;justify-content:center}' +
+        '.send{all:initial;flex:0 0 auto;width:32px;height:32px;border-radius:50%;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font:600 14px/1 "Segoe UI",sans-serif;box-shadow:0 6px 16px -8px rgba(0,0,0,.6)}' +
+        '.send:hover{background:#1f2937}' +
+        '.hint{margin-top:2px;padding:0 4px 2px 30px;color:#98a3b5;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+        '.bar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:2147483647;pointer-events:auto;display:none;align-items:center;gap:10px;padding:7px 9px 7px 13px;border-radius:999px;background:rgba(20,28,44,.94);color:#e6eefc;font:12px "Segoe UI","Microsoft YaHei UI",sans-serif;box-shadow:0 18px 44px -18px rgba(0,0,0,.9);border:1px solid rgba(255,255,255,.12)}' +
+        '.bar-dot{width:7px;height:7px;border-radius:50%;background:#4d8bff;box-shadow:0 0 8px #4d8bff}' +
+        '.bar-send{all:initial;padding:5px 12px;border-radius:999px;background:#2f6ef0;color:#fff;font:600 11.5px "Segoe UI",sans-serif;cursor:pointer}' +
+        '.bar-clear{all:initial;padding:5px 8px;border-radius:999px;color:#b8c4d8;font:11.5px "Segoe UI",sans-serif;cursor:pointer}' +
+        '.toast{position:fixed;top:48px;right:10px;z-index:2147483647;pointer-events:none;display:none;background:rgba(20,28,44,.95);color:#e6eefc;border:1px solid rgba(140,170,255,.4);border-radius:9px;padding:7px 11px;font:11.5px "Segoe UI","Microsoft YaHei UI",sans-serif;box-shadow:0 12px 30px -14px rgba(0,0,0,.9);max-width:320px}'
+      root.appendChild(style)
+
+      var toolbar = document.createElement('div')
+      toolbar.className = 'toolbar'
+      var pickBtn = document.createElement('button')
+      pickBtn.className = 'pick'
+      pickBtn.textContent = '⌖ 选取元素'
+      pickBtn.title = '指向网页元素添加批注，批量复制引用后粘贴到聊天框'
+      toolbar.appendChild(pickBtn)
+      root.appendChild(toolbar)
+
+      var layer = document.createElement('div')
+      layer.className = 'layer'
+      var hover = document.createElement('div')
+      hover.className = 'hover'
+      layer.appendChild(hover)
+      root.appendChild(layer)
+
+      var pop = document.createElement('div')
+      pop.className = 'pop'
+      var row = document.createElement('div')
+      row.className = 'row'
+      var grip = document.createElement('div')
+      grip.className = 'grip'
+      grip.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 4h3M8 4h6M2 8h6M11 8h3M2 12h2M7 12h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="4" r="1.6" fill="#fff" stroke="currentColor" stroke-width="1.3"/><circle cx="9.5" cy="8" r="1.6" fill="#fff" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="12" r="1.6" fill="#fff" stroke="currentColor" stroke-width="1.3"/></svg>'
+      var input = document.createElement('input')
+      input.className = 'comment'
+      input.type = 'text'
+      input.placeholder = '添加评论…'
+      var mic = document.createElement('span')
+      mic.className = 'mic'
+      mic.title = '语音输入暂未接入'
+      mic.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="6" y="1.5" width="4" height="7" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+      var sendBtn = document.createElement('button')
+      sendBtn.className = 'send'
+      sendBtn.type = 'button'
+      sendBtn.textContent = '✓'
+      sendBtn.title = '添加批注并发送（Ctrl+Enter）'
+      row.appendChild(grip)
+      row.appendChild(input)
+      row.appendChild(mic)
+      row.appendChild(sendBtn)
+      var hint = document.createElement('div')
+      hint.className = 'hint'
+      hint.textContent = 'Enter 添加 · Ctrl+Enter 发送 · Esc 取消'
+      pop.appendChild(row)
+      pop.appendChild(hint)
+      root.appendChild(pop)
+
+      var bar = document.createElement('div')
+      bar.className = 'bar'
+      var barDot = document.createElement('span')
+      barDot.className = 'bar-dot'
+      var barText = document.createElement('span')
+      barText.textContent = '正在批注 · 0'
+      var barSend = document.createElement('button')
+      barSend.className = 'bar-send'
+      barSend.type = 'button'
+      barSend.textContent = '发送'
+      var barClear = document.createElement('button')
+      barClear.className = 'bar-clear'
+      barClear.type = 'button'
+      barClear.textContent = '清除'
+      bar.appendChild(barDot)
+      bar.appendChild(barText)
+      bar.appendChild(barSend)
+      bar.appendChild(barClear)
+      root.appendChild(bar)
+
+      var toast = document.createElement('div')
+      toast.className = 'toast'
+      root.appendChild(toast)
+
+      var mode = 'idle'
+      var selected = null
+      var hovered = null
+      var annotations = []
+      var toastTimer = 0
+      var previousCursor = ''
+
+      function normalize(value, limit) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, limit || 160)
+      }
+
+      function escapeSelector(value) {
+        if (window.CSS && window.CSS.escape) return window.CSS.escape(value)
+        return String(value).replace(/([^\w-])/g, '\\$1')
+      }
+
+      function selectorOf(element) {
+        try {
+          if (!element || element.nodeType !== 1) return ''
+          if (element.id) return '#' + escapeSelector(element.id)
+          var parts = []
+          var node = element
+          var depth = 0
+          while (node && node.nodeType === 1 && node !== document.body && depth < 6) {
+            var testid = node.getAttribute('data-testid')
+            if (testid) {
+              parts.unshift('[data-testid="' + String(testid).replace(/"/g, '\\"') + '"]')
+              break
+            }
+            var nameAttr = node.getAttribute('name')
+            if (nameAttr && ['input', 'select', 'textarea', 'form'].indexOf(node.tagName.toLowerCase()) >= 0) {
+              parts.unshift(node.tagName.toLowerCase() + '[name="' + String(nameAttr).replace(/"/g, '\\"') + '"]')
+              break
+            }
+            var part = node.tagName.toLowerCase()
+            var parent = node.parentElement
+            if (parent) {
+              var sameTag = 0
+              var index = 0
+              for (var i = 0; i < parent.children.length; i += 1) {
+                if (parent.children[i].tagName === node.tagName) {
+                  sameTag += 1
+                  if (parent.children[i] === node) index = sameTag
+                }
+              }
+              if (sameTag > 1) part += ':nth-of-type(' + index + ')'
+            }
+            parts.unshift(part)
+            node = parent
+            depth += 1
+          }
+          return parts.join(' > ')
+        } catch (error) {
+          return ''
+        }
+      }
+
+      function contextOf(element) {
+        try {
+          var card = element.closest('[data-testid="agent-harness-card"]')
+          if (card) {
+            var cardHeading = card.querySelector('h1,h2,h3,h4')
+            if (cardHeading && normalize(cardHeading.innerText)) return normalize(cardHeading.innerText)
+          }
+          var container = element.closest('section,article')
+          if (container) {
+            var heading = container.querySelector('h1,h2,h3,h4')
+            if (heading && normalize(heading.innerText)) return normalize(heading.innerText)
+          }
+          var node = element
+          while (node) {
+            var prev = node.previousElementSibling
+            while (prev) {
+              if (/^H[1-6]$/.test(prev.tagName) && normalize(prev.innerText)) return normalize(prev.innerText)
+              prev = prev.previousElementSibling
+            }
+            node = node.parentElement
+          }
+        } catch (error) {
+          /* ignore */
+        }
+        return ''
+      }
+
+      function describe(element) {
+        var rect = element.getBoundingClientRect()
+        var tag = element.tagName.toLowerCase()
+        var role =
+          element.getAttribute('role') ||
+          (tag === 'a'
+            ? 'link'
+            : tag === 'button'
+              ? 'button'
+              : tag === 'input'
+                ? element.type === 'checkbox'
+                  ? 'checkbox'
+                  : 'textbox'
+                : tag === 'select'
+                  ? 'combobox'
+                  : tag)
+        var name = ''
+        try {
+          name =
+            element.getAttribute('aria-label') ||
+            element.getAttribute('title') ||
+            element.getAttribute('placeholder') ||
+            element.innerText ||
+            element.textContent ||
+            ''
+        } catch (error) {
+          name = ''
+        }
+        var text = ''
+        try {
+          text = element.innerText || element.textContent || ''
+        } catch (error) {
+          text = ''
+        }
+        return {
+          selector: selectorOf(element),
+          context: contextOf(element),
+          tag: tag,
+          role: role,
+          name: normalize(name, 120),
+          text: normalize(text, 300),
+          ref: element.getAttribute('data-dsh-bu-ref') || undefined,
+          href: tag === 'a' && element.href ? element.href : undefined,
+          box: {
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            w: Math.round(rect.width),
+            h: Math.round(rect.height),
+          },
+        }
+      }
+
+      function buildReference() {
+        var lines = ['[Browser Use 批注 · ' + annotations.length + ' 条]']
+        lines.push('页面: ' + location.href)
+        annotations.forEach(function (annotation, index) {
+          lines.push('--- 批注 ' + (index + 1) + ' ---')
+          lines.push('评论: ' + annotation.comment)
+          if (annotation.info.context) lines.push('上下文: ' + annotation.info.context)
+          if (annotation.info.selector) lines.push('选择器: ' + annotation.info.selector)
+          lines.push('角色: ' + annotation.info.role)
+          if (annotation.info.name) lines.push('可读名: ' + annotation.info.name)
+          if (annotation.info.text) lines.push('文本: ' + annotation.info.text)
+          lines.push(
+            '位置: x=' +
+              annotation.info.box.x +
+              ' y=' +
+              annotation.info.box.y +
+              ' w=' +
+              annotation.info.box.w +
+              ' h=' +
+              annotation.info.box.h,
+          )
+          if (annotation.info.ref) lines.push('Ref: ' + annotation.info.ref)
+          if (annotation.info.href) lines.push('链接: ' + annotation.info.href)
+        })
+        return lines.join('\n')
+      }
+
+      function fallbackCopy(text) {
+        try {
+          var textarea = document.createElement('textarea')
+          textarea.value = text
+          textarea.style.cssText = 'position:fixed;left:-9999px;top:0;'
+          if (root === host) host.appendChild(textarea)
+          else root.appendChild(textarea)
+          textarea.select()
+          var ok = document.execCommand('copy')
+          textarea.remove()
+          return Boolean(ok)
+        } catch (error) {
+          return false
+        }
+      }
+
+      function copyText(text) {
+        return new Promise(function (resolve) {
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).then(
+                function () {
+                  resolve(true)
+                },
+                function () {
+                  resolve(fallbackCopy(text))
+                },
+              )
+              return
+            }
+          } catch (error) {
+            /* fall through */
+          }
+          resolve(fallbackCopy(text))
+        })
+      }
+
+      function showToast(message, ms) {
+        if (toastTimer) clearTimeout(toastTimer)
+        toast.textContent = message
+        toast.style.display = 'block'
+        toastTimer = window.setTimeout(function () {
+          toast.style.display = 'none'
+        }, ms || 2800)
+      }
+
+      function positionBox(boxElement, rect) {
+        boxElement.style.left = rect.x - 3 + 'px'
+        boxElement.style.top = rect.y - 3 + 'px'
+        boxElement.style.width = rect.width + 6 + 'px'
+        boxElement.style.height = rect.height + 6 + 'px'
+      }
+
+      function positionAnnotation(annotation) {
+        if (!annotation.element || !annotation.element.isConnected) {
+          if (annotation.outline) annotation.outline.style.display = 'none'
+          if (annotation.marker) annotation.marker.style.display = 'none'
+          return
+        }
+        var rect = annotation.element.getBoundingClientRect()
+        if (rect.width < 1 || rect.height < 1) {
+          annotation.outline.style.display = 'none'
+          annotation.marker.style.display = 'none'
+          return
+        }
+        annotation.outline.style.display = 'block'
+        annotation.marker.style.display = 'block'
+        positionBox(annotation.outline, rect)
+        annotation.marker.style.left = rect.x + rect.width / 2 - 11 + 'px'
+        annotation.marker.style.top = rect.y - 12 + 'px'
+      }
+
+      function reposition() {
+        annotations.forEach(positionAnnotation)
+        if (mode === 'select' && hovered && hovered.isConnected) {
+          var rect = hovered.getBoundingClientRect()
+          if (rect.width > 1 && rect.height > 1) positionBox(hover, rect)
+        }
+        if (selected && selected.isConnected) positionPopover()
+      }
+
+      function positionPopover() {
+        if (!selected) return
+        var rect = selected.getBoundingClientRect()
+        var width = Math.min(380, window.innerWidth - 20)
+        var left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8)
+        var top = rect.bottom + 10
+        if (top + 120 > window.innerHeight) top = Math.max(8, rect.top - 120)
+        pop.style.left = left + 'px'
+        pop.style.top = top + 'px'
+        pop.style.width = width + 'px'
+      }
+
+      function updateBar() {
+        barText.textContent = '正在批注 · ' + annotations.length
+        bar.style.display = annotations.length > 0 ? 'flex' : 'none'
+      }
+
+      function addAnnotation(comment, sendNow) {
+        if (!selected) return
+        var info = describe(selected)
+        var annotation = { element: selected, info: info, comment: comment }
+        var outline = document.createElement('div')
+        outline.className = 'anno'
+        var marker = document.createElement('div')
+        marker.className = 'marker'
+        marker.textContent = String(annotations.length + 1)
+        layer.appendChild(outline)
+        layer.appendChild(marker)
+        annotation.outline = outline
+        annotation.marker = marker
+        annotations.push(annotation)
+        positionAnnotation(annotation)
+        input.value = ''
+        pop.style.display = 'none'
+        selected = null
+        updateBar()
+        if (sendNow) {
+          sendAll()
+        } else {
+          setMode('select')
+        }
+      }
+
+      function sendAll() {
+        if (annotations.length === 0) return
+        var text = buildReference()
+        var count = annotations.length
+        copyText(text).then(function (ok) {
+          showToast(
+            ok
+              ? '已复制 ' + count + ' 条批注，粘贴到聊天框即可提问或请求修改'
+              : '复制失败，请重试或手动复制',
+          )
+        })
+        clearAnnotations()
+        setMode('idle')
+      }
+
+      function clearAnnotations() {
+        annotations.forEach(function (annotation) {
+          if (annotation.outline) annotation.outline.remove()
+          if (annotation.marker) annotation.marker.remove()
+        })
+        annotations = []
+        updateBar()
+      }
+
+      function startSelect() {
+        if (mode === 'select') return
+        if (mode === 'comment') return
+        setMode('select')
+      }
+
+      function setMode(next) {
+        if (mode === 'select') {
+          document.removeEventListener('mousemove', onMove, true)
+          document.removeEventListener('click', onClick, true)
+          document.removeEventListener('keydown', onSelectKey, true)
+        }
+        mode = next
+        if (next === 'select') {
+          previousCursor = document.documentElement.style.cursor || ''
+          document.documentElement.style.cursor = 'crosshair'
+          pickBtn.textContent = '选取中… Esc 退出'
+          document.addEventListener('mousemove', onMove, true)
+          document.addEventListener('click', onClick, true)
+          document.addEventListener('keydown', onSelectKey, true)
+          showToast('点击页面元素添加批注；Esc 退出', 2600)
+        } else if (next === 'comment') {
+          document.documentElement.style.cursor = ''
+          pickBtn.textContent = '添加评论…'
+          pop.style.display = 'block'
+          positionPopover()
+          input.value = ''
+          window.setTimeout(function () {
+            input.focus()
+          }, 0)
+        } else {
+          document.documentElement.style.cursor = previousCursor || ''
+          pickBtn.textContent = '⌖ 选取元素'
+          hover.style.display = 'none'
+          pop.style.display = 'none'
+          hovered = null
+          selected = null
+        }
+      }
+
+      function selectElement(element) {
+        if (!element || element === host) return
+        selected = element
+        var rect = element.getBoundingClientRect()
+        if (rect.width < 2 || rect.height < 2) return
+        positionBox(hover, rect)
+        hover.style.display = 'block'
+        setMode('comment')
+      }
+
+      function onMove(event) {
+        if (mode !== 'select') return
+        var element = document.elementFromPoint(event.clientX, event.clientY)
+        if (!element || element === host || (host.contains && host.contains(element))) return
+        var rect = element.getBoundingClientRect()
+        if (rect.width < 2 || rect.height < 2) {
+          hover.style.display = 'none'
+          hovered = null
+          return
+        }
+        hovered = element
+        positionBox(hover, rect)
+        hover.style.display = 'block'
+      }
+
+      function onClick(event) {
+        if (mode !== 'select') return
+        event.preventDefault()
+        event.stopPropagation()
+        event.stopImmediatePropagation()
+        var element = hovered || document.elementFromPoint(event.clientX, event.clientY)
+        if (element) selectElement(element)
+      }
+
+      function onSelectKey(event) {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          setMode('idle')
+        }
+      }
+
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          var comment = input.value.trim()
+          if (!comment) {
+            if ((event.ctrlKey || event.metaKey) && annotations.length > 0) sendAll()
+            else showToast('请输入评论')
+            return
+          }
+          addAnnotation(comment, Boolean(event.ctrlKey || event.metaKey))
+        } else if (event.key === 'Escape') {
+          event.preventDefault()
+          setMode('idle')
+        }
+      })
+
+      sendBtn.addEventListener('click', function (event) {
+        event.preventDefault()
+        event.stopPropagation()
+        var comment = input.value.trim()
+        if (!comment) {
+          showToast('请输入评论')
+          return
+        }
+        addAnnotation(comment, Boolean(event.ctrlKey || event.metaKey))
+      })
+
+      pickBtn.addEventListener('click', function (event) {
+        event.preventDefault()
+        event.stopPropagation()
+        if (mode === 'select') setMode('idle')
+        else if (mode === 'idle') startSelect()
+      })
+
+      barSend.addEventListener('click', function (event) {
+        event.preventDefault()
+        event.stopPropagation()
+        sendAll()
+      })
+
+      barClear.addEventListener('click', function (event) {
+        event.preventDefault()
+        event.stopPropagation()
+        clearAnnotations()
+        setMode('idle')
+      })
+
+      window.addEventListener('scroll', reposition, true)
+      window.addEventListener('resize', reposition)
+      document.documentElement.appendChild(host)
+      return { ok: true, injected: true }
     }
 
     function floatingButton() {
