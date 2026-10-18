@@ -39,6 +39,22 @@ window.__ModuleLoader__.load({
     var composerInputActions = null
     var clientContext = null
 
+    function clientServiceAvailable(name) {
+      try {
+        if (clientContext && typeof clientContext.get === 'function') {
+          var service = clientContext.get(name)
+          if (service !== undefined && service !== null) return true
+        }
+      } catch (error) {
+        /* service not injected in this scope */
+      }
+      try {
+        return Boolean(clientContext && clientContext[name])
+      } catch (error) {
+        return false
+      }
+    }
+
     function setPanelState(patch) {
       panelState = Object.assign({}, panelState, patch || {}, { updatedAt: Date.now() })
       for (var listener of panelListeners) {
@@ -2433,9 +2449,9 @@ window.__ModuleLoader__.load({
           : null,
         compat: {
           protocol: PROTOCOL_VERSION,
-          sidebarRight: Boolean(clientContext && clientContext.sidebarRight),
-          slots: Boolean(clientContext && clientContext.slots),
-          sidebarRightTabs: Boolean(clientContext && clientContext.sidebarRightTabs),
+          sidebarRight: clientServiceAvailable('sidebarRight'),
+          slots: clientServiceAvailable('slots'),
+          sidebarRightTabs: clientServiceAvailable('sidebarRightTabs'),
           composer: Boolean(composerInputActions),
           webview: webviews.length > 0,
         },

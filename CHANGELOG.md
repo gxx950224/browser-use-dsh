@@ -3,6 +3,13 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.1 — 2026-10-18
+
+- Fixed the status preflight crashing with `cannot get property "slots" without inject`:
+  `client.compat` now resolves services through `ctx.get(name)` with a defensive fallback.
+- `compat.dshVersion` now tries several DSH package names and falls back to the package
+  inventory instead of only `@deepseek-ai/dsh`.
+
 ## 0.9.0 — 2026-10-18
 
 Production-hardening for the "visible collaboration / annotation layer" positioning; not yet
