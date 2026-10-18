@@ -3,6 +3,12 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.8.3 — 2026-10-18
+
+- `browser_use_act` gains `setText`: replace an element's visible text with `value` (local DOM
+  only; a refresh or React re-render restores the original). Useful for annotation-driven
+  mock text changes and previews, not for editing a site's source.
+
 ## 0.8.2 — 2026-10-18
 
 - Removed the unused microphone icon from the annotation comment pill.

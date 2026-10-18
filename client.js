@@ -1299,6 +1299,13 @@ window.__ModuleLoader__.load({
           element.setAttribute('aria-checked', desired ? 'true' : 'false')
           element.click()
         }
+      } else if (action === 'setText') {
+        try {
+          element.textContent = String(args.value === undefined ? '' : args.value)
+          fire(element, 'input', {})
+        } catch (error) {
+          /* ignore */
+        }
       }
       var result = {
         ok: true,
