@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Browser Use",
+    "description": "在右侧内建浏览器中观察并操作网页的 Agent：可读页面、点击与输入，关键动作前请求确认，并用 Agent 光标与目标高亮显示下一步。"
+  }
+}

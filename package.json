@@ -1,0 +1,55 @@
+{
+  "name": "@gxx-labs/browser-use-dsh",
+  "version": "0.1.0",
+  "description": "DSH Desktop 可见浏览器 Agent：在右侧内建 Browser 中观察/操作网页，带 Agent 光标、目标高亮、审批与可验证结果。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "verify": "node scripts/verify-bundle.mjs",
+    "test": "node tests/run-tests.mjs",
+    "check": "npm run verify && npm test"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "browser-use",
+    "browser",
+    "webview"
+  ],
+  "author": "gxx-labs",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ]
+    }
+  }
+}
