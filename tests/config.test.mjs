@@ -12,6 +12,7 @@ test('defaults: desktop bridge defaults are stable', () => {
   assert.equal(config.openReuseTab, true)
   assert.equal(config.approvalPolicy, 'sensitive')
   assert.equal(config.originApproval, 'ask')
+  assert.deepEqual(config.trustedOrigins, [])
   assert.deepEqual(config.allowedOrigins, ['dsh-app://app'])
 })
 
@@ -48,6 +49,7 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
     maxBodyBytes: 4096,
     approvalPolicy: 'all',
     originApproval: 'off',
+    trustedOrigins: ['https://example.com/'],
   })
   assert.equal(config.bridgePort, 9900)
   assert.equal(config.commandTimeoutMs, 12000)
@@ -57,6 +59,7 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
   assert.equal(config.maxBodyBytes, 4096)
   assert.equal(config.approvalPolicy, 'all')
   assert.equal(config.originApproval, 'off')
+  assert.deepEqual(config.trustedOrigins, ['https://example.com'])
   assert.deepEqual(config.allowedOrigins, ['https://example.com', 'dsh-app://app'])
 })
 

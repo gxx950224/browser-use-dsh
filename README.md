@@ -47,6 +47,7 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
     openReuseTab: true
     approvalPolicy: sensitive
     originApproval: ask
+    trustedOrigins: []
     commandTimeoutMs: 30000
     pollTimeoutMs: 25000
     maxBodyBytes: 131072
@@ -60,6 +61,7 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 | `openReuseTab` | `true` | 打开 URL 时优先复用已有侧栏浏览器页 |
 | `approvalPolicy` | `sensitive` | `sensitive` 只对敏感目标/回车提交询问；`all` 对每次 click/press/select/check 询问；`off` 关闭 |
 | `originApproval` | `ask` | 每个 Session 首次访问新 Origin（含跨站链接）询问；`off` 关闭 |
+| `trustedOrigins` | `[]` | 直接放行的 Origin 白名单（跳过新 Origin 审批，不跳过敏感动作审批） |
 | `commandTimeoutMs` | `30000` | 单次浏览器命令超时 |
 | `pollTimeoutMs` | `25000` | Client 长轮询保持时间 |
 | `maxBodyBytes` | `131072` | 桥请求体上限 |

@@ -205,6 +205,14 @@ test('open proceeds after origin approval and remembers it per session', async (
   )
 })
 
+test('open skips origin approval for a trusted origin without an approval service', async () => {
+  const { ctx, bridge } = setup({ config: { trustedOrigins: ['https://example.com'] } })
+  const value = await ctx.definitions.get('browser_use_open').execute({ url: 'https://example.com/' }, {})
+  assert.equal(value.ok, true)
+  assert.equal(value.origin, 'https://example.com')
+  assert.equal(bridge.calls.filter((call) => call.op === 'open').length, 1)
+})
+
 test('verify passes structured checks through', async () => {
   const { ctx } = setup()
   const value = await ctx.definitions
