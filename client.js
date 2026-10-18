@@ -1993,7 +1993,9 @@ window.__ModuleLoader__.load({
               var disposeType = scope.sidebarRightTabs.register({
                 id: PANEL_ID,
                 kind: PANEL_KIND,
-                title: PANEL_TITLE,
+                title: function () {
+                  return PANEL_TITLE
+                },
                 keepMounted: true,
               })
               var disposeSlot = scope.slots.register(
