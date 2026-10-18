@@ -29,10 +29,9 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 
 ### 验证状态（2026-10-18，真机）
 
-- `install_bundle` 安装后 Host 半经 HMR 生效；Client 在已打开的 DSH 页面中连接成功。
-- 实测通过：`browser_use_status`（桥 ready、Client online、webview 列表）、`browser_use_open`（example.com，标题/`g-1`）、同 URL 复用 tab（`reused:true`）、`browser_use_read` 的 `ax` / `text` / `links` 三种模式（含 ref、CSS box、截断与不可信包裹）。
-- 真机首测发现并修复：页面内 `links` 函数未自包含（`E_EXECUTE_FAILED`）；页面热更新产生新 rendererId 导致短暂 `E_MULTIPLE_RENDERERS`（改为 sessionStorage 稳定 id + 聚焦窗口优先路由；Host 侧改动需完全重启 DSH 生效）。
-- 尚未实测：完全重启后的恢复、Web profile 降级、卸载清理、多窗口聚焦路由（见 `docs/probe.md`）。
+- C1：`install_bundle` 后 Host 半 HMR 生效、Client 连接成功；`status/open/read(ax/text/links)` 与 tab 复用真机通过。
+- C2：remove/install 后 Host 半加载 C2（工具与提示词更新，`capabilities.act/verify:true`），34 项单测全绿；Origin 门禁在审批策略 `never` 会话中返回 `E_APPROVAL_DENIED`（fail-closed 生效）。
+- C2 真机动作（click/fill/press/verify/reload）待复测：插件重装后 Sidebar webview 消失，重新 `open` 需要审批；当前会话审批策略为 `never`。可切回 `ask` 审批、手动打开侧栏浏览器页，或配置 `trustedOrigins` 后复测。
 
 ## 配置
 
