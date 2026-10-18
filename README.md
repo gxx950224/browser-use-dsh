@@ -2,8 +2,8 @@
 
 DSH Desktop 可见协作/批注层：在右侧**内建 Browser tab** 中把 Agent 的观察、操作、批注与审批可视化；动作时页面内显示 Agent 光标/目标高亮，支持审批、CDP 截图、右侧状态面板（六态泛光 + 人工接管）。**它不是官方 Browser Use Provider 的替代品。**
 
-> **版本 0.9.5（可见协作/批注层，正式上线硬化 + 回归入口 + CDP 自动发现）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧六态面板 + 接管/交还，页面右上角「⌖ 选取元素」批注流程（多批注 → **默认只插入聊天草稿，由用户检查后发送**；可配置自动发送）。
-> 官方内建 Browser 工具栏没有可注入的 slot，因此按钮放在网页内容右上角；可用 `floatingPickButton: false` 关闭。本仓库已完成构建/测试/打包校验；**尚未执行 npm publish**。发布就绪度见 [docs/release-readiness.md](docs/release-readiness.md)。
+> **版本 0.9.6（可见协作/批注层，正式上线硬化 + 回归修复）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧六态面板 + 接管/交还，页面右上角「⌖ 选取元素」批注流程（多批注 → **默认只插入聊天草稿，由用户检查后发送**；可配置自动发送）。
+> 官方内建 Browser 工具栏没有可注入的 slot，因此按钮放在网页内容右上角；可用 `floatingPickButton: false` 关闭。本仓库已完成构建/测试/打包校验。发布记录与发布就绪度见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/release-readiness.md](docs/release-readiness.md)。
 
 ## 与官方 Browser Use 的关系
 
