@@ -2,8 +2,8 @@
 
 DSH Desktop 可见浏览器 Agent：在右侧**内建 Browser tab** 中观察、操作并验证网页；动作时页面内显示 Agent 光标/目标高亮，支持审批、CDP 截图，以及右侧 Browser Use 状态面板（六态泛光 + 人工接管）。
 
-> **当前里程碑：C4（可见 + 可控 + 可观测）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧面板（idle/observing/acting/awaiting/success/failed/paused 六态边缘泛光 + 接管/交还）。
-> 站点级持久策略、时间线导出、发布与兼容矩阵在 C5；本版本**不会**用空壳冒充这些能力。
+> **版本 0.5.0（C1–C4 功能完成 + C5 发布准备）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧六态面板 + 接管/交还。
+> 本仓库已完成构建/测试/打包校验；**尚未执行 npm publish**（发布前请按 `npm-publish-dsh-plugin` 技能确认版本与 2FA）。兼容性见 [docs/compatibility.md](docs/compatibility.md)。
 
 ## 安装（本地目录）
 
@@ -14,6 +14,18 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 ```
 
 安装后**完全重启 DSH**（Host 半的 ESM 模块不会热重载）。打开一个新的会话，先调用 `browser_use_status` 确认 Client 在线。
+
+### 更新 / 移除 / 回滚
+
+```text
+plugin_manager(action: "remove_bundle", target: "@gxx-labs/browser-use-dsh")
+plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-use-dsh")
+```
+
+- **更新**：先 `remove_bundle` 再 `install_bundle`（已安装时直接 install 会返回 `already-installed`）；需要重启才能确定 Host 模块是新版本。
+- **移除**：`remove_bundle` 后重启；桥端口与子进程会随插件卸载释放。
+- **回滚**：把 `package.json` 的 version 固定回上一版目录并重装；profile 的 `cordis.patch.yml` 不会被本插件写入。
+- 所有 `plugin_manager` 操作影响整个 profile；不要在同一个 profile 同时启用另一套浏览器 Agent 插件。
 
 ## 工具（C2）
 
@@ -35,7 +47,8 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 - C2：remove/install 后 Host 半加载 C2（工具与提示词更新，`capabilities.act/verify:true`），34 项单测全绿；Origin 门禁在审批策略 `never` 会话中返回 `E_APPROVAL_DENIED`（fail-closed 生效）。
 - C3：remove/install 后 Host 半加载 C3（`browser_use_screenshot` 与页面内视觉反馈）；真机 `hover` 动作、`verify`（URL/标题）与 `E_REF_STALE` 通过；CDP 关闭时截图返回 `E_CDP_UNAVAILABLE` 且带 `--remote-debugging-port` 提示。40 项单测全绿。
 - C4：remove/install 后 Host 半加载 C4；`browser_use_panel` 真机返回 `ok:true`，`status.client.panel` 显示 `registered:true`、`state:"idle"`；面板六态视觉与"接管/交还"按钮待用户点击确认。41 项单测全绿。
-- C2 剩余真机动作（click/fill/press/reload、敏感动作审批弹窗、跨站链接审批、CDP 开启后的截图）待复测：可切回 `ask` 审批、手动打开侧栏浏览器页，或带调试端口重启 DSH。
+- C5：`npm pack --dry-run` 产物体检通过（18 个文件、dev 文件排除）；用 [examples/test-page.html](examples/test-page.html) + [examples/serve-test-page.mjs](examples/serve-test-page.mjs) 完成本地 E2E：open → read → fill 姓名/邮箱 → type → select 时段 → check 同意 → click 确认预订 → verify 回执文本 → reload（g-1）→ 旧 ref `E_REF_STALE` → waitFor；测试用的临时覆盖 bundle 已移除，配置恢复 `sensitive/ask`。
+- 仍待真机：click/fill 敏感审批弹窗（需审批策略切回 `ask`）、跨站链接审批、CDP 开启后的截图（需 `--remote-debugging-port=9222` 重启 DSH）、面板接管按钮的 `E_TAKEOVER` 分支。
 
 ## 配置
 
@@ -115,16 +128,18 @@ DSH 内建右侧浏览器（Electron <webview>）
 ```powershell
 cd D:\AI\dsh-plugins\browser-use-dsh
 node scripts/verify-bundle.mjs   # manifest/patch/client/locale/icon 校验
-node tests/run-tests.mjs         # node:test（config/protocol/bridge/tools）
-npm run check                    # verify + test
+node tests/run-tests.mjs         # node:test（config/protocol/bridge/tools/cdp/host）
+node scripts/verify-pack.mjs     # npm pack --dry-run 产物体检（必需文件/排除 dev 文件）
+npm run check                    # verify + test + pack-check
+node examples/serve-test-page.mjs  # 本地测试页 http://127.0.0.1:8899/
 ```
 
 无运行时依赖、无构建步骤：`client.js` 直接是 `window.__ModuleLoader__.load` 产物。
 
 ## 路线图
 
-- **C5**：站点级持久策略、操作时间线导出、E2E 报告、npm 发布与 Provider/DSH 兼容矩阵。
-- 已完成：C1（bridge + 只读）、C2（动作 + ref/generation + 审批 + 验证）、C3（CDP 截图 + 页面内光标/目标高亮/ripple）、C4（右侧六态面板 + 接管/交还 + 面板操作记录）。
+- **已完成（0.5.0）**：C1 bridge + 只读、C2 动作 + ref/generation + 审批 + 验证、C3 CDP 截图 + 页面内光标/高亮/ripple、C4 右侧六态面板 + 接管/交还、C5 构建/打包/兼容矩阵/本地 E2E 物料。
+- **未做（需要单独决策）**：npm 公开发布、站点级持久策略（目前用 `trustedOrigins` 配置表达）、操作时间线导出、真实 CDP 输入（`isTrusted` 页面）。
 
 ## License
 

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Browser Use 本地测试页</title>
+<style>
+  body{font-family:"Segoe UI","Microsoft YaHei",sans-serif;margin:0;background:#f4f6fa;color:#1b2433}
+  main{max-width:720px;margin:0 auto;padding:28px 22px 60px}
+  h1{font-size:22px;margin:0 0 6px}
+  .muted{color:#6b7688;font-size:13px}
+  .card{background:#fff;border:1px solid #e2e8f2;border-radius:12px;padding:18px;margin-top:18px}
+  label{display:block;font-size:13px;margin:10px 0 4px}
+  input,select{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d5dce8;border-radius:8px;font:inherit}
+  .row{display:flex;gap:12px}
+  .row > div{flex:1}
+  button{margin-top:14px;padding:9px 16px;border:none;border-radius:9px;background:#2f6ef0;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+  button.secondary{background:#eef2f9;color:#2b3a52}
+  a{color:#2f6ef0}
+  #result{margin-top:14px;padding:10px 12px;border-radius:8px;background:#f0f7ff;border:1px solid #cfe0ff;font-size:13px;display:none}
+  #result.show{display:block}
+  #result.error{background:#fff2f2;border-color:#ffd6d6;color:#a12b2b}
+  .checks{display:flex;gap:16px;margin-top:10px;font-size:13px}
+  .checks label{display:flex;align-items:center;gap:6px;margin:0}
+  .checks input{width:auto}
+  #hoverTarget{margin-top:16px;padding:10px;border:1px dashed #b9cdfb;border-radius:8px;font-size:13px;color:#40506a}
+</style>
+</head>
+<body>
+<main>
+  <h1>Browser Use · 本地测试页</h1>
+  <p class="muted">用于真机验证 read / act / verify / reload / ref 失效；不含第三方脚本。</p>
+
+  <section class="card">
+    <h2 style="font-size:16px;margin:0 0 4px">预约表单</h2>
+    <p class="muted">填写并提交后，结果区会显示一条回执；数据只存在当前页面内存。</p>
+    <form id="bookingForm">
+      <div class="row">
+        <div>
+          <label for="name">姓名</label>
+          <input id="name" name="name" placeholder="例如 Alex" autocomplete="off" />
+        </div>
+        <div>
+          <label for="email">邮箱</label>
+          <input id="email" name="email" type="email" placeholder="alex@example.com" autocomplete="off" />
+        </div>
+      </div>
+      <label for="slot">时段</label>
+      <select id="slot" name="slot">
+        <option value="14:00">14:00–15:00</option>
+        <option value="16:00">16:00–17:00</option>
+        <option value="18:00">18:00–19:00</option>
+      </select>
+      <div class="checks">
+        <label><input type="checkbox" id="agree" name="agree" /> 同意场馆规则</label>
+        <label><input type="checkbox" id="newsletter" name="newsletter" /> 接收通知</label>
+      </div>
+      <button type="submit" id="submitBtn">确认预订</button>
+      <button type="button" class="secondary" id="resetBtn">重置</button>
+    </form>
+    <div id="result" role="status" aria-live="polite"></div>
+    <div id="hoverTarget">把鼠标移到这里可以看到 hover 提示（测试 hover 动作）。</div>
+  </section>
+
+  <section class="card">
+    <h2 style="font-size:16px;margin:0 0 4px">链接与危险动作</h2>
+    <p class="muted">未提交前页面不产生外部写入；提交按钮名称包含"确认"，会触发敏感动作审批。</p>
+    <p><a id="docsLink" href="/docs">查看本地文档页</a> · <a id="externalLink" href="https://example.com/">前往 example.com</a></p>
+    <button type="button" id="deleteBtn" style="background:#d64545">删除记录</button>
+    <button type="button" id="payBtn" style="background:#c47c12">支付 ¥120</button>
+  </section>
+</main>
+<script>
+  (function () {
+    var form = document.getElementById('bookingForm')
+    var result = document.getElementById('result')
+    function show(text, bad) {
+      result.textContent = text
+      result.className = 'show' + (bad ? ' error' : '')
+    }
+    form.addEventListener('submit', function (event) {
+      event.preventDefault()
+      var name = document.getElementById('name').value.trim()
+      var email = document.getElementById('email').value.trim()
+      var agree = document.getElementById('agree').checked
+      if (!name || !email) { show('请先填写姓名和邮箱。', true); return }
+      if (!agree) { show('请先勾选同意场馆规则。', true); return }
+      var slot = document.getElementById('slot').value
+      show('预订成功：' + name + ' / ' + email + ' / ' + slot + ' / 订单 BK-TEST-001')
+    })
+    document.getElementById('resetBtn').addEventListener('click', function () {
+      form.reset()
+      result.className = ''
+      result.textContent = ''
+    })
+    document.getElementById('deleteBtn').addEventListener('click', function () {
+      show('已删除（仅测试页内存）。')
+    })
+    document.getElementById('payBtn').addEventListener('click', function () {
+      show('已进入支付流程（测试页不会真的扣款）。')
+    })
+    document.getElementById('docsLink').addEventListener('click', function (event) {
+      event.preventDefault()
+      show('本地文档页（测试链接，未导航）。')
+    })
+  })()
+</script>
+</body>
+</html>

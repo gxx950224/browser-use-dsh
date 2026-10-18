@@ -16,18 +16,19 @@
 | 10 | 重启恢复 | 完全重启 DSH 后插件重新加载，Client 重新握手，无孤儿端口 | | 待填 |
 | 11 | Web profile | Web profile 下 `browser_use_status` 报 Client 离线 / `supported:false`，不崩溃 | | 待填 |
 | 12 | 卸载清理 | 卸载插件并重启后桥端口释放，无残留进程 | | 待填 |
-| 13 | act 点击（非敏感） | `act {action:"click", target:{ref}, expectedGeneration}` 在页面生效，返回 url/title/generation | 2026-10-18：在用户已打开的火山方舟页面用 `hover e19` 真机通过（返回 target/box/generation）；click/fill 真机待复测（不在用户控制台页做副作用动作） | 部分通过 |
-| 14 | ref 失效 | 导航/刷新后用旧 generation 动作 → `E_REF_STALE` | 2026-10-18：`expectedGeneration:"g-999"` → `E_REF_STALE`，未执行动作 | 通过 |
-| 15 | 敏感动作审批 | 点击"提交/确认/支付"类目标会弹出审批；拒绝后不执行 | 单测覆盖 approved/rejected/无审批服务；真机审批链路见 fail-closed 注 | 部分通过 |
-| 16 | 验证器 | `browser_use_verify` 校验 URL/标题/文本/元素，`passed` 与证据一致 | 2026-10-18：URL + 标题（contains）真机 `passed:true`，checks 返回 actual/expected | 通过 |
+| 13 | act 点击/填充/输入/选择/勾选 | 动作在页面生效并返回 url/title/target/generation | 2026-10-18 本地 E2E：`fill` 姓名/邮箱、`type` 输入、`select` 时段、`check` 同意、`click` 确认预订全部成功；AX 回读 `value` 正确 | 通过（E2E） |
+| 14 | ref 失效 | 导航/刷新后用旧 generation 动作 → `E_REF_STALE` | 2026-10-18：`expectedGeneration:"g-999"` → `E_REF_STALE`；`reload` 后 g-0→g-1，旧 ref click 返回 `E_REF_STALE`，未执行动作 | 通过 |
+| 15 | 敏感动作审批 | 点击"提交/确认/支付"类目标会弹出审批；拒绝后不执行 | 单测覆盖 approved/rejected/无审批服务；真机审批链路见 fail-closed 注（E2E 时用临时覆盖将审批设为 off，避免在 `never` 会话卡住） | 部分通过 |
+| 16 | 验证器 | `browser_use_verify` 校验 URL/标题/文本/元素，`passed` 与证据一致 | 2026-10-18：URL/标题真机通过；E2E 中 `text:"预订成功：Alex / alex@example.com / 16:00 / 订单 BK-TEST-001"` 真机 `passed:true` | 通过 |
 | 17 | 跨站链接审批 | 点击指向其他 Origin 的链接会先询问新 Origin | 单测未覆盖跨站链接分支；真机待复测 | 待复测 |
-| 18 | reload 后 generation | `act {action:"reload"}` 后 generation 递增，旧 ref 失效 | 待复测（不在用户页面主动 reload） | 待复测 |
+| 18 | reload 后 generation | `act {action:"reload"}` 后 generation 递增，旧 ref 失效 | 2026-10-18：`reload` 返回 `g-1`；旧 ref 返回 `E_REF_STALE`；reload 后表单值清空、ref 重新分配 | 通过 |
 | 19 | 截图（CDP 关闭） | `browser_use_screenshot` 在无调试端口时返回 `E_CDP_UNAVAILABLE` 与启动提示 | 2026-10-18 真机：`E_CDP_UNAVAILABLE`，message/hint 含 `--remote-debugging-port=9222`；status `capabilities.screenshot:false` | 通过 |
-| 20 | 截图（CDP 开启） | 以 `--remote-debugging-port=9222` 启动后截图成功，作为图片附件返回模型/界面 | 待真机（需带调试端口重启 DSH） | 待填（C3） |
-| 21 | 页面内视觉反馈 | act 时页面出现光标/目标高亮/ripple，1.8s 后清理；`visualFeedback:false` 关闭 | 2026-10-18：`hover` 动作成功且 overlay 注入路径执行无报错；视觉呈现需用户确认 | 部分通过 |
-| 22 | 右侧面板打开 | `browser_use_panel` 打开自注册 `browser-use-panel` tab，显示状态/页面/最近操作 | 2026-10-18：`browser_use_panel` 返回 `ok:true`；`status.client.panel.registered:true,state:"idle"` | 通过 |
+| 20 | 截图（CDP 开启） | 以 `--remote-debugging-port=9222` 启动后截图成功，作为图片附件返回模型/界面 | 待真机（需带调试端口重启 DSH） | 待填（C5） |
+| 21 | 页面内视觉反馈 | act 时页面出现光标/目标高亮/ripple，1.8s 后清理；`visualFeedback:false` 关闭 | 2026-10-18：hover / fill / click 动作成功且 overlay 注入路径执行无报错；视觉呈现需用户确认 | 部分通过 |
+| 22 | 右侧面板打开 | `browser_use_panel` 打开自注册 `browser-use-panel` tab，显示状态/页面/最近操作 | 2026-10-18：`browser_use_panel` 返回 `ok:true`；`status.client.panel.registered:true`；E2E 后面板记录 8 条操作 | 通过 |
 | 23 | 六态泛光 | idle/observing/acting/awaiting/success/failed/paused 各有对应面板泛光 | 面板已注册；六态视觉与动画待用户确认 | 部分通过 |
 | 24 | 接管/交还 | 面板"接管浏览器"后 Agent 动作返回 `E_TAKEOVER`；"交还 Agent"后需重新 read | 面板按钮已渲染；接管后 E_TAKEOVER 分支待用户点击面板按钮后复测 | 待复测 |
+| 25 | 本地 E2E 全流程 | open → read → fill/select/check/click → verify → reload → type → waitFor → ref 失效 | 2026-10-18：用 `examples/serve-test-page.mjs` + 临时覆盖 bundle（trustedOrigins + approval off）跑通；测试后已移除覆盖 bundle，配置恢复 `sensitive/ask` | 通过 |
 
 > 2026-10-18 C2 实机进展：remove_bundle + install_bundle 后 Host 半加载 C2（工具/提示词已更新，`capabilities.act/verify:true`）。
 > 重建插件后 Sidebar webview 随页面重载消失，`browser_use_open` 触发"新 Origin 审批"时，**本会话的审批策略为 `never`，审批被确定性拒绝并返回 `E_APPROVAL_DENIED`**——这正是 fail-closed 设计，说明 Origin 门禁已生效；也意味着 act/verify 的真机动作需要先把审批策略切回 `ask`（或手动打开侧栏浏览器页、或配置 `trustedOrigins`）才能复测。

@@ -42,7 +42,17 @@ check(
 )
 check('publish access public', pkg.publishConfig?.access === 'public')
 
-const requiredFiles = ['lib/', 'client.js', 'cordis.patch.yml', 'locale/*.json', 'icon.svg', 'README.md', 'LICENSE']
+const requiredFiles = [
+  'lib/',
+  'client.js',
+  'cordis.patch.yml',
+  'locale/*.json',
+  'icon.svg',
+  'README.md',
+  'LICENSE',
+  'CHANGELOG.md',
+  'docs/compatibility.md',
+]
 for (const entry of requiredFiles) {
   check(`files includes ${entry}`, Array.isArray(pkg.files) && pkg.files.includes(entry))
 }

@@ -1,6 +1,6 @@
 {
   "name": "@gxx-labs/browser-use-dsh",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "DSH Desktop 可见浏览器 Agent：在右侧内建 Browser 中观察/操作网页，带 Agent 光标、目标高亮、审批与可验证结果。",
   "type": "module",
   "main": "lib/index.js",
@@ -18,12 +18,15 @@
     "locale/*.json",
     "icon.svg",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md",
+    "docs/compatibility.md"
   ],
   "scripts": {
     "verify": "node scripts/verify-bundle.mjs",
-    "test": "node tests/run-tests.mjs",
-    "check": "npm run verify && npm test"
+    "test": "node scripts/run-tests.mjs",
+    "pack-check": "node scripts/verify-pack.mjs",
+    "check": "npm run verify && npm test && npm run pack-check"
   },
   "keywords": [
     "deepseek-harness",

@@ -553,7 +553,7 @@ window.__ModuleLoader__.load({
         if (explicit) return explicit
         var tag = element.tagName
         if (tag === 'INPUT') {
-          var type = cleanText((element.getAttribute('type') || 'text').toLowerCase())
+          var type = normalize((element.getAttribute('type') || 'text').toLowerCase(), 32)
           return INPUT_ROLES[type] || 'textbox'
         }
         return ROLE[tag] || (isInteractive(element) ? 'button' : 'generic')
