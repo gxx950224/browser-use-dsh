@@ -1482,13 +1482,21 @@ window.__ModuleLoader__.load({
     function floatingAnnotator() {
       var HOST_ID = 'dsh-browser-use-annotator'
       var LEGACY_ID = 'dsh-browser-use-pick-host'
-      if (document.getElementById(HOST_ID)) return { ok: true, reused: true }
+      var UI_VERSION = '2026-10-18-3'
+      var existing = document.getElementById(HOST_ID)
+      if (existing) {
+        if (existing.getAttribute('data-dsh-bu-ui-version') === UI_VERSION) {
+          return { ok: true, reused: true }
+        }
+        existing.remove()
+      }
       var legacy = document.getElementById(LEGACY_ID)
       if (legacy && legacy.parentNode) legacy.parentNode.removeChild(legacy)
 
       var host = document.createElement('div')
       host.id = HOST_ID
-      host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483645;'
+      host.setAttribute('data-dsh-bu-ui-version', UI_VERSION)
+      host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483647;'
       var root = host.attachShadow ? host.attachShadow({ mode: 'open' }) : host
       var style = document.createElement('style')
       style.textContent =
@@ -1504,7 +1512,6 @@ window.__ModuleLoader__.load({
         '.grip{flex:0 0 auto;color:#8a94a6;display:flex;align-items:center;justify-content:center;width:22px;height:22px}' +
         '.comment{flex:1;min-width:0;border:0;outline:0;font:13px "Segoe UI","Microsoft YaHei UI",sans-serif;color:#1b2433;background:transparent;padding:6px 2px}' +
         '.comment::placeholder{color:#98a3b5}' +
-        '.mic{flex:0 0 auto;color:#98a3b5;width:24px;height:24px;display:flex;align-items:center;justify-content:center}' +
         '.send{all:initial;flex:0 0 auto;width:32px;height:32px;border-radius:50%;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font:600 14px/1 "Segoe UI",sans-serif;box-shadow:0 6px 16px -8px rgba(0,0,0,.6)}' +
         '.send:hover{background:#1f2937}' +
         '.hint{margin-top:2px;padding:0 4px 2px 30px;color:#98a3b5;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
@@ -1543,11 +1550,6 @@ window.__ModuleLoader__.load({
       input.className = 'comment'
       input.type = 'text'
       input.placeholder = '添加评论…'
-      var mic = document.createElement('span')
-      mic.className = 'mic'
-      mic.title = '语音输入暂未接入'
-      mic.innerHTML =
-        '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="6" y="1.5" width="4" height="7" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
       var sendBtn = document.createElement('button')
       sendBtn.className = 'send'
       sendBtn.type = 'button'
@@ -1555,7 +1557,6 @@ window.__ModuleLoader__.load({
       sendBtn.title = '添加批注并发送（Ctrl+Enter）'
       row.appendChild(grip)
       row.appendChild(input)
-      row.appendChild(mic)
       row.appendChild(sendBtn)
       var hint = document.createElement('div')
       hint.className = 'hint'
@@ -1983,6 +1984,11 @@ window.__ModuleLoader__.load({
 
       function onMove(event) {
         if (mode !== 'select') return
+        if (event.target === host) {
+          hover.style.display = 'none'
+          hovered = null
+          return
+        }
         var element = document.elementFromPoint(event.clientX, event.clientY)
         if (!element || element === host || (host.contains && host.contains(element))) return
         var rect = element.getBoundingClientRect()
@@ -1998,6 +2004,11 @@ window.__ModuleLoader__.load({
 
       function onClick(event) {
         if (mode !== 'select') return
+        var path = typeof event.composedPath === 'function' ? event.composedPath() : []
+        if (event.target === host || path.indexOf(host) !== -1) {
+          // Let the annotation shadow UI (send / clear / comment box) receive the click.
+          return
+        }
         event.preventDefault()
         event.stopPropagation()
         event.stopImmediatePropagation()

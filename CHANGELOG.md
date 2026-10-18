@@ -3,6 +3,15 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.8.2 — 2026-10-18
+
+- Removed the unused microphone icon from the annotation comment pill.
+- Fixed clicks on the `正在批注 · N` bar / 发送 / 清除 being swallowed by the element-selection
+  capture listener while in select mode: document capture now ignores events whose composed
+  path includes the annotation host, and the host sits at the top z-index layer.
+- The injected annotator carries a UI version attribute so a plugin update replaces an older
+  injected UI instead of reusing it.
+
 ## 0.8.1 — 2026-10-18
 
 - AX nodes now include `checked` (from `aria-checked`, checkbox/radio state) and `pressed`
