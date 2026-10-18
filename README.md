@@ -2,7 +2,7 @@
 
 DSH Desktop 可见浏览器 Agent：在右侧**内建 Browser tab** 中观察、操作并验证网页；动作时页面内显示 Agent 光标/目标高亮，支持审批、CDP 截图，以及右侧 Browser Use 状态面板（六态泛光 + 人工接管）。
 
-> **版本 0.7.0（C1–C4 功能完成 + Codex 式元素批注 + C5 发布准备）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧六态面板 + 接管/交还，以及页面右上角的 **「⌖ 选取元素」批注流程**（点选元素 → 评论框 → 多条批注 → 复制引用含卡片上下文 → 粘贴到聊天框提问/请求修改）。
+> **版本 0.8.0（C1–C4 功能完成 + Codex 式元素批注 + 直接发送到聊天 + C5 发布准备）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧六态面板 + 接管/交还，以及页面右上角的 **「⌖ 选取元素」批注流程**（点选元素 → 评论框 → 多条批注 → **自动插入聊天输入框并发送**；不可用时回退复制）。
 > 官方内建 Browser 工具栏没有可注入的 slot，因此按钮放在网页内容右上角；可用 `floatingPickButton: false` 关闭。本仓库已完成构建/测试/打包校验；**尚未执行 npm publish**。
 
 ## 安装（本地目录）
@@ -122,7 +122,7 @@ DSH 内建右侧浏览器（Electron <webview>）
 - **页面内容不可信**：工具结果用 `<untrusted-page-content>` 包裹；审批不能在页面内绕过。
 - **截图需额外启动参数**：`browser_use_screenshot` 需要 DSH Desktop 以 `--remote-debugging-port=9222` 启动；否则返回 `E_CDP_UNAVAILABLE` 与启动提示，不会静默失败。
 - **右侧面板**：自注册 `browser-use-panel` tab + `sidebar.right.pane.tab` 正文，六态靠 `--dsw-*` 令牌与 `color-mix()` 表达，动画尊重 `prefers-reduced-motion`；面板里的"接管浏览器"会暂停 Agent（动作返回 `E_TAKEOVER`），"交还 Agent"后需重新 `browser_use_read`。
-- **元素批注按钮**：页面右上角「⌖ 选取元素」进入 Codex 式批注流程——悬停高亮、点击锁定（蓝色选框 + 编号气泡）、弹出「添加评论…」悬浮框（Enter 添加 / Ctrl+Enter 发送 / Esc 取消）；支持多条批注，底部「正在批注 · N」栏可发送或清除；发送时复制 `[Browser Use 批注 · N 条]`，每条包含评论、选择器、角色、可读名、文本、位置、链接，以及**所在卡片/区块标题**。这是插件能拿到的最接近官方 Browser 工具栏的位置——官方包没有工具栏扩展位。
+- **元素批注按钮**：页面右上角「⌖ 选取元素」进入 Codex 式批注流程——悬停高亮、点击锁定（蓝色选框 + 编号气泡）、弹出「添加评论…」悬浮框（Enter 添加 / Ctrl+Enter 发送 / Esc 取消）；支持多条批注，底部「正在批注 · N」栏可发送或清除；发送时通过 `inputActions.insertText/setDraft + submit()` **直接插入当前聊天草稿并触发发送**（通过 `conversation.composer.dock` 捕获公开的 `inputActions`），不可用时自动回退复制；每条引用含评论、选择器、角色、可读名、文本、位置、链接与**所在卡片/区块标题**。这是插件能拿到的最接近官方 Browser 工具栏的位置——官方包没有工具栏扩展位。
 - **右侧状态面板/边缘泛光**已实现；人工接管状态机为 C4 范围，站点级持久策略、时间线导出、发布与兼容矩阵在 C5。
 - 多窗口优先路由到聚焦 DSH 窗口；页面刷新用 sessionStorage 保持 rendererId。
 

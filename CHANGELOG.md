@@ -3,6 +3,21 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.8.0 — 2026-10-18
+
+Annotation send now goes to the chat composer instead of the clipboard.
+
+### Added
+
+- A hidden `ComposerBridge` component registered in `conversation.composer.dock` captures the
+  public `inputActions` API (`captureInsertion` / `insertText` / `setDraft` / `submit`) from
+  `ctx.uiSession` standard props.
+- The annotation flow writes `[Browser Use 批注 · N 条]` into a page outbox; the Client polls
+  it every 600 ms, inserts the text into the current chat draft and calls `submit()`. If the
+  composer API is unavailable or insertion fails, it falls back to copying to the clipboard and
+  reports the actual status back to the page toast (`sent` / `copied` / `failed`).
+- Added `@deepseek-ai/dsh-client-ui-conversation` to `dsh.client.inject` for activation order.
+
 ## 0.7.0 — 2026-10-18
 
 Codex-like element annotation flow (local install, not yet published to npm).

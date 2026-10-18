@@ -36,6 +36,7 @@ window.__ModuleLoader__.load({
       updatedAt: 0,
     }
     var panelListeners = new Set()
+    var composerInputActions = null
 
     function setPanelState(patch) {
       panelState = Object.assign({}, panelState, patch || {}, { updatedAt: Date.now() })
@@ -499,6 +500,87 @@ window.__ModuleLoader__.load({
           lastFloatingError = message
           pushPanelStep('选取按钮注入失败: ' + message.slice(0, 80), 'failed')
         }
+      }
+    }
+
+    function outboxReader() {
+      var element = document.getElementById('dsh-browser-use-outbox')
+      if (!element) return null
+      var text = element.textContent || ''
+      element.textContent = ''
+      return text || null
+    }
+
+    function outboxStatusWriter(status) {
+      var element = document.getElementById('dsh-browser-use-outbox-status')
+      if (!element) return false
+      element.textContent = String(status || '')
+      return true
+    }
+
+    async function deliverAnnotation(text) {
+      if (!text) return 'failed'
+      try {
+        if (
+          composerInputActions &&
+          typeof composerInputActions.submit === 'function'
+        ) {
+          var span =
+            typeof composerInputActions.captureInsertion === 'function'
+              ? composerInputActions.captureInsertion()
+              : null
+          var inserted =
+            span && typeof composerInputActions.insertText === 'function'
+              ? composerInputActions.insertText(text, span)
+              : false
+          if (!inserted && typeof composerInputActions.setDraft === 'function') {
+            composerInputActions.setDraft(text)
+            inserted = true
+          }
+          if (inserted) {
+            await new Promise(function (resolve) {
+              window.setTimeout(resolve, 30)
+            })
+            composerInputActions.submit()
+            pushPanelStep('批注已发送到聊天框', 'done')
+            return 'sent'
+          }
+        }
+      } catch (error) {
+        pushPanelStep('批注发送失败: ' + cleanText(error && error.message).slice(0, 80), 'failed')
+      }
+      try {
+        await navigator.clipboard.writeText(text)
+        pushPanelStep('批注已复制到剪贴板', 'paused')
+        return 'copied'
+      } catch (error) {
+        pushPanelStep('批注复制失败', 'failed')
+        return 'failed'
+      }
+    }
+
+    async function pumpAnnotationOutbox() {
+      if (!bridgeInfo) return
+      var target = findBestWebview(null)
+      if (!target) return
+      try {
+        var raw = await executeInPage(target, '(' + outboxReader.toString() + ')()', 3000)
+        if (!raw) return
+        var payload
+        try {
+          payload = JSON.parse(raw)
+        } catch (error) {
+          return
+        }
+        if (!payload || payload.type !== 'browser-use-annotation' || typeof payload.text !== 'string') return
+        var status = await deliverAnnotation(payload.text)
+        await executeInPage(
+          target,
+          '(' + outboxStatusWriter.toString() + ')(' + JSON.stringify(status) + ')',
+          3000,
+        )
+      } catch (error) {
+        /* page may be navigating */
       }
     }
 
@@ -1496,6 +1578,25 @@ window.__ModuleLoader__.load({
       toast.className = 'toast'
       root.appendChild(toast)
 
+      var outbox = null
+      var statusEl = null
+      function ensureOutbox() {
+        outbox = document.getElementById('dsh-browser-use-outbox')
+        if (!outbox) {
+          outbox = document.createElement('div')
+          outbox.id = 'dsh-browser-use-outbox'
+          outbox.style.cssText = 'display:none;'
+          document.documentElement.appendChild(outbox)
+        }
+        statusEl = document.getElementById('dsh-browser-use-outbox-status')
+        if (!statusEl) {
+          statusEl = document.createElement('div')
+          statusEl.id = 'dsh-browser-use-outbox-status'
+          statusEl.style.cssText = 'display:none;'
+          document.documentElement.appendChild(statusEl)
+        }
+      }
+
       var mode = 'idle'
       var selected = null
       var hovered = null
@@ -1790,15 +1891,25 @@ window.__ModuleLoader__.load({
         if (annotations.length === 0) return
         var text = buildReference()
         var count = annotations.length
-        copyText(text).then(function (ok) {
-          showToast(
-            ok
-              ? '已复制 ' + count + ' 条批注，粘贴到聊天框即可提问或请求修改'
-              : '复制失败，请重试或手动复制',
-          )
-        })
+        ensureOutbox()
+        if (statusEl) statusEl.textContent = ''
+        if (outbox) {
+          outbox.textContent = JSON.stringify({
+            type: 'browser-use-annotation',
+            text: text,
+            count: count,
+            at: Date.now(),
+          })
+        }
+        showToast('已发送到聊天框…', 1500)
         clearAnnotations()
         setMode('idle')
+        window.setTimeout(function () {
+          var status = statusEl ? statusEl.textContent : ''
+          if (status === 'sent') showToast('已发送到聊天框', 2200)
+          else if (status === 'copied') showToast('已复制批注到剪贴板，请粘贴发送', 3200)
+          else if (status === 'failed') showToast('自动发送失败，请重试', 3200)
+        }, 1200)
       }
 
       function clearAnnotations() {
@@ -2291,6 +2402,14 @@ window.__ModuleLoader__.load({
             return step.text
           }),
           pickButton: panelState.pickButton,
+          composer: composerInputActions
+            ? {
+                available: true,
+                insertText: typeof composerInputActions.insertText === 'function',
+                setDraft: typeof composerInputActions.setDraft === 'function',
+                submit: typeof composerInputActions.submit === 'function',
+              }
+            : { available: false },
         },
         hint:
           webviews.length === 0
@@ -2813,6 +2932,9 @@ window.__ModuleLoader__.load({
       var floatingTimer = window.setInterval(function () {
         if (!disposed) void ensureFloatingButton()
       }, 4000)
+      var annotationTimer = window.setInterval(function () {
+        if (!disposed) void pumpAnnotationOutbox()
+      }, 600)
 
       return {
         rendererId: rendererId,
@@ -2820,6 +2942,7 @@ window.__ModuleLoader__.load({
           disposed = true
           try {
             window.clearInterval(floatingTimer)
+            window.clearInterval(annotationTimer)
           } catch (error) {
             /* ignore */
           }
@@ -2936,6 +3059,31 @@ window.__ModuleLoader__.load({
             registered: false,
             message: '面板不可用：' + cleanText(error && error.message),
           })
+        }
+
+        try {
+          ctx.inject(['slots'], function (scope) {
+            scope.effect(function () {
+              function ComposerBridge(props) {
+                if (props && props.inputActions) composerInputActions = props.inputActions
+                return null
+              }
+              var disposeBridge = scope.slots.register(
+                { name: 'conversation.composer.dock', id: 'browser-use-composer-bridge', order: 1 },
+                ComposerBridge,
+              )
+              return function () {
+                composerInputActions = null
+                try {
+                  disposeBridge()
+                } catch (error) {
+                  /* ignore */
+                }
+              }
+            })
+          })
+        } catch (error) {
+          setPanelState({ composerBridge: 'unavailable: ' + cleanText(error && error.message) })
         }
       },
     }
