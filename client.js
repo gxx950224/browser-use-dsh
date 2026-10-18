@@ -987,12 +987,31 @@ window.__ModuleLoader__.load({
           var nodes = document.querySelectorAll(
             'a,button,[role="button"],[role="link"],input,select,textarea,label,h1,h2,h3,h4,p,li,td,span,div',
           )
+          var best = null
+          var bestScore = -1
           for (var j = 0; j < nodes.length; j += 1) {
             var node = nodes[j]
             if (!isVisible(node)) continue
             var text = normalize(node.innerText || node.textContent)
-            if (text && text.indexOf(wanted) >= 0) return node
+            if (!text || text.indexOf(wanted) < 0) continue
+            var score = text === wanted ? 2000 : Math.max(0, 400 - text.length)
+            var tag = node.tagName.toLowerCase()
+            var role = node.getAttribute('role') || ''
+            if (tag === 'button' || tag === 'a' || role === 'button' || role === 'link') score += 800
+            if (tag === 'input' || tag === 'select' || tag === 'textarea') score += 700
+            var depth = 0
+            var cursor = node
+            while (cursor && cursor !== document.body) {
+              depth += 1
+              cursor = cursor.parentElement
+            }
+            score += depth * 5
+            if (score > bestScore) {
+              best = node
+              bestScore = score
+            }
           }
+          if (best) return best
         }
         return null
       }
@@ -1074,10 +1093,31 @@ window.__ModuleLoader__.load({
         if (target.text) {
           var wanted = normalize(target.text)
           var nodes = document.querySelectorAll('a,button,[role="button"],[role="link"],input,label,h1,h2,h3,p,li,span,div')
+          var best = null
+          var bestScore = -1
           for (var j = 0; j < nodes.length; j += 1) {
-            if (!isVisible(nodes[j])) continue
-            if (normalize(nodes[j].innerText || nodes[j].textContent).indexOf(wanted) >= 0) return nodes[j]
+            var node = nodes[j]
+            if (!isVisible(node)) continue
+            var text = normalize(node.innerText || node.textContent)
+            if (!text || text.indexOf(wanted) < 0) continue
+            var score = text === wanted ? 2000 : Math.max(0, 400 - text.length)
+            var tag = node.tagName.toLowerCase()
+            var role = node.getAttribute('role') || ''
+            if (tag === 'button' || tag === 'a' || role === 'button' || role === 'link') score += 800
+            if (tag === 'input' || tag === 'label') score += 700
+            var depth = 0
+            var cursor = node
+            while (cursor && cursor !== document.body) {
+              depth += 1
+              cursor = cursor.parentElement
+            }
+            score += depth * 5
+            if (score > bestScore) {
+              best = node
+              bestScore = score
+            }
           }
+          if (best) return best
         }
         return null
       }
@@ -1529,7 +1569,7 @@ window.__ModuleLoader__.load({
     function floatingAnnotator() {
       var HOST_ID = 'dsh-browser-use-annotator'
       var LEGACY_ID = 'dsh-browser-use-pick-host'
-      var UI_VERSION = '2026-10-18-4'
+      var UI_VERSION = '2026-10-18-5'
       var existing = document.getElementById(HOST_ID)
       if (existing) {
         if (existing.getAttribute('data-dsh-bu-ui-version') === UI_VERSION) {
@@ -1684,7 +1724,31 @@ window.__ModuleLoader__.load({
           while (node && node.nodeType === 1 && node !== document.body && depth < 6) {
             var testid = node.getAttribute('data-testid')
             if (testid) {
-              parts.unshift('[data-testid="' + String(testid).replace(/"/g, '\\"') + '"]')
+              var testSelector = '[data-testid="' + String(testid).replace(/"/g, '\\"') + '"]'
+              if (String(testid) === 'agent-harness-card') {
+                var cardHeading = node.querySelector('h1,h2,h3,h4')
+                var cardLabel = normalize(cardHeading && (cardHeading.innerText || cardHeading.textContent))
+                if (cardLabel) {
+                  try {
+                    node.setAttribute('data-dsh-bu-card', cardLabel)
+                  } catch (error) {
+                    /* attribute may be rejected on exotic nodes */
+                  }
+                  testSelector += '[data-dsh-bu-card="' + String(cardLabel).replace(/"/g, '\\"') + '"]'
+                } else {
+                  var cardList = document.querySelectorAll('[data-testid="agent-harness-card"]')
+                  var cardIndex = Array.prototype.indexOf.call(cardList, node) + 1
+                  if (cardIndex > 0) {
+                    try {
+                      node.setAttribute('data-dsh-bu-card-index', String(cardIndex))
+                    } catch (error) {
+                      /* ignore */
+                    }
+                    testSelector += '[data-dsh-bu-card-index="' + cardIndex + '"]'
+                  }
+                }
+              }
+              parts.unshift(testSelector)
               break
             }
             var nameAttr = node.getAttribute('name')
@@ -2160,7 +2224,31 @@ window.__ModuleLoader__.load({
           while (node && node.nodeType === 1 && node !== document.body && depth < 6) {
             var testid = node.getAttribute('data-testid')
             if (testid) {
-              parts.unshift('[data-testid="' + String(testid).replace(/"/g, '\\"') + '"]')
+              var testSelector = '[data-testid="' + String(testid).replace(/"/g, '\\"') + '"]'
+              if (String(testid) === 'agent-harness-card') {
+                var cardHeading = node.querySelector('h1,h2,h3,h4')
+                var cardLabel = normalize(cardHeading && (cardHeading.innerText || cardHeading.textContent))
+                if (cardLabel) {
+                  try {
+                    node.setAttribute('data-dsh-bu-card', cardLabel)
+                  } catch (error) {
+                    /* attribute may be rejected on exotic nodes */
+                  }
+                  testSelector += '[data-dsh-bu-card="' + String(cardLabel).replace(/"/g, '\\"') + '"]'
+                } else {
+                  var cardList = document.querySelectorAll('[data-testid="agent-harness-card"]')
+                  var cardIndex = Array.prototype.indexOf.call(cardList, node) + 1
+                  if (cardIndex > 0) {
+                    try {
+                      node.setAttribute('data-dsh-bu-card-index', String(cardIndex))
+                    } catch (error) {
+                      /* ignore */
+                    }
+                    testSelector += '[data-dsh-bu-card-index="' + cardIndex + '"]'
+                  }
+                }
+              }
+              parts.unshift(testSelector)
               break
             }
             var nameAttr = node.getAttribute('name')

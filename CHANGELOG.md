@@ -3,6 +3,17 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.6 — 2026-10-18
+
+- Text targets now prefer exact/deepest interactive matches instead of the first ancestor whose
+  text merely contains the query; this fixes clicking “取消” being misresolved to a sensitive
+  modal wrapper.
+- Annotation selectors for elements inside `data-testid="agent-harness-card"` cards now include
+  `data-dsh-bu-card="<heading>"` (or an index fallback), so six identical Harness footers are
+  individually targetable.
+- Bumped the injected annotator UI version so the new selector/text-resolution code replaces the
+  old page-side code.
+
 ## 0.9.5 — 2026-10-18
 
 - CDP auto-discovery: if the configured port is occupied (for example `verge-mihomo.exe`
