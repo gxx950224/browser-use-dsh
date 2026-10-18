@@ -2885,6 +2885,16 @@ window.__ModuleLoader__.load({
         })
         return { ok: true }
       }
+      if (op === 'takeover') {
+        var takeover = Boolean(args && args.takeover)
+        setPanelState({
+          takeover: takeover,
+          state: takeover ? 'paused' : 'idle',
+          message: takeover ? '用户接管' : '就绪',
+        })
+        pushPanelStep(takeover ? '用户接管浏览器' : '交还 Agent', 'done')
+        return { ok: true, takeover: takeover }
+      }
       if (op === 'openPanel') {
         try {
           if (!ctx || !ctx.sidebarRight || typeof ctx.sidebarRight.openTab !== 'function') {

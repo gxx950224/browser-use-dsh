@@ -3,6 +3,12 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.3 — 2026-10-18
+
+- `browser_use_panel` accepts `takeover: true | false` to hand the browser to the user or
+  return it to the agent; this makes the `E_TAKEOVER` gate testable and gives the agent an
+  explicit control-transfer path.
+
 ## 0.9.2 — 2026-10-18
 
 - `client.compat.dshVersion` now reads `window.__DSH_BOOT__` as a fallback.
