@@ -3,6 +3,12 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.2 — 2026-10-18
+
+- `client.compat.dshVersion` now reads `window.__DSH_BOOT__` as a fallback.
+- Bumped the injected annotator UI version so a plugin update replaces the older page-side
+  annotator and its status handling instead of reusing it.
+
 ## 0.9.1 — 2026-10-18
 
 - Fixed the status preflight crashing with `cannot get property "slots" without inject`:

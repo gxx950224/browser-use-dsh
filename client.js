@@ -55,6 +55,21 @@ window.__ModuleLoader__.load({
       }
     }
 
+    function dshBootVersion() {
+      try {
+        var boot = window.__DSH_BOOT__
+        if (!boot) return null
+        var value =
+          boot.version ||
+          boot.appVersion ||
+          (boot.build && boot.build.version) ||
+          (boot.app && boot.app.version)
+        return typeof value === 'string' ? value : null
+      } catch (error) {
+        return null
+      }
+    }
+
     function setPanelState(patch) {
       panelState = Object.assign({}, panelState, patch || {}, { updatedAt: Date.now() })
       for (var listener of panelListeners) {
@@ -1514,7 +1529,7 @@ window.__ModuleLoader__.load({
     function floatingAnnotator() {
       var HOST_ID = 'dsh-browser-use-annotator'
       var LEGACY_ID = 'dsh-browser-use-pick-host'
-      var UI_VERSION = '2026-10-18-3'
+      var UI_VERSION = '2026-10-18-4'
       var existing = document.getElementById(HOST_ID)
       if (existing) {
         if (existing.getAttribute('data-dsh-bu-ui-version') === UI_VERSION) {
@@ -2449,6 +2464,7 @@ window.__ModuleLoader__.load({
           : null,
         compat: {
           protocol: PROTOCOL_VERSION,
+          dshVersion: dshBootVersion(),
           sidebarRight: clientServiceAvailable('sidebarRight'),
           slots: clientServiceAvailable('slots'),
           sidebarRightTabs: clientServiceAvailable('sidebarRightTabs'),
