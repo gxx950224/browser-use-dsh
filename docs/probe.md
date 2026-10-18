@@ -16,15 +16,15 @@
 | 10 | 重启恢复 | 完全重启 DSH 后插件重新加载，Client 重新握手，无孤儿端口 | | 待填 |
 | 11 | Web profile | Web profile 下 `browser_use_status` 报 Client 离线 / `supported:false`，不崩溃 | | 待填 |
 | 12 | 卸载清理 | 卸载插件并重启后桥端口释放，无残留进程 | | 待填 |
-| 13 | act 点击（非敏感） | `act {action:"click", target:{ref}, expectedGeneration}` 在页面生效，返回 url/title/generation | 代码 + 单测通过；真机需先把侧栏浏览器打开（或通过审批）后复测 | 待复测 |
-| 14 | ref 失效 | 导航/刷新后用旧 generation 动作 → `E_REF_STALE` | 单测覆盖 generation 校验逻辑；真机待复测 | 待复测 |
-| 15 | 敏感动作审批 | 点击"提交/确认/支付"类目标会弹出审批；拒绝后不执行 | 单测覆盖 approved/rejected/无审批服务三种；真机审批链路已见 fail-closed（见下方注） | 部分通过 |
-| 16 | 验证器 | `browser_use_verify` 校验 URL/标题/文本/元素，`passed` 与证据一致 | 单测通过；真机待复测 | 待复测 |
+| 13 | act 点击（非敏感） | `act {action:"click", target:{ref}, expectedGeneration}` 在页面生效，返回 url/title/generation | 2026-10-18：在用户已打开的火山方舟页面用 `hover e19` 真机通过（返回 target/box/generation）；click/fill 真机待复测（不在用户控制台页做副作用动作） | 部分通过 |
+| 14 | ref 失效 | 导航/刷新后用旧 generation 动作 → `E_REF_STALE` | 2026-10-18：`expectedGeneration:"g-999"` → `E_REF_STALE`，未执行动作 | 通过 |
+| 15 | 敏感动作审批 | 点击"提交/确认/支付"类目标会弹出审批；拒绝后不执行 | 单测覆盖 approved/rejected/无审批服务；真机审批链路见 fail-closed 注 | 部分通过 |
+| 16 | 验证器 | `browser_use_verify` 校验 URL/标题/文本/元素，`passed` 与证据一致 | 2026-10-18：URL + 标题（contains）真机 `passed:true`，checks 返回 actual/expected | 通过 |
 | 17 | 跨站链接审批 | 点击指向其他 Origin 的链接会先询问新 Origin | 单测未覆盖跨站链接分支；真机待复测 | 待复测 |
-| 18 | reload 后 generation | `act {action:"reload"}` 后 generation 递增，旧 ref 失效 | 待复测 | 待复测 |
-| 19 | 截图（CDP 关闭） | `browser_use_screenshot` 在无调试端口时返回 `E_CDP_UNAVAILABLE` 与启动提示 | 单测覆盖（本机 9222 当前不可达） | 待真机 |
-| 20 | 截图（CDP 开启） | 以 `--remote-debugging-port=9222` 启动后截图成功，作为图片附件返回模型/界面 | 待真机 | 待填（C3） |
-| 21 | 页面内视觉反馈 | act 时页面出现光标/目标高亮/ripple，1.8s 后清理；`visualFeedback:false` 关闭 | 代码实现，待真机 | 待填（C3） |
+| 18 | reload 后 generation | `act {action:"reload"}` 后 generation 递增，旧 ref 失效 | 待复测（不在用户页面主动 reload） | 待复测 |
+| 19 | 截图（CDP 关闭） | `browser_use_screenshot` 在无调试端口时返回 `E_CDP_UNAVAILABLE` 与启动提示 | 2026-10-18 真机：`E_CDP_UNAVAILABLE`，message/hint 含 `--remote-debugging-port=9222`；status `capabilities.screenshot:false` | 通过 |
+| 20 | 截图（CDP 开启） | 以 `--remote-debugging-port=9222` 启动后截图成功，作为图片附件返回模型/界面 | 待真机（需带调试端口重启 DSH） | 待填（C3） |
+| 21 | 页面内视觉反馈 | act 时页面出现光标/目标高亮/ripple，1.8s 后清理；`visualFeedback:false` 关闭 | 2026-10-18：`hover` 动作成功且 overlay 注入路径执行无报错；视觉呈现需用户确认 | 部分通过 |
 
 > 2026-10-18 C2 实机进展：remove_bundle + install_bundle 后 Host 半加载 C2（工具/提示词已更新，`capabilities.act/verify:true`）。
 > 重建插件后 Sidebar webview 随页面重载消失，`browser_use_open` 触发"新 Origin 审批"时，**本会话的审批策略为 `never`，审批被确定性拒绝并返回 `E_APPROVAL_DENIED`**——这正是 fail-closed 设计，说明 Origin 门禁已生效；也意味着 act/verify 的真机动作需要先把审批策略切回 `ask`（或手动打开侧栏浏览器页、或配置 `trustedOrigins`）才能复测。

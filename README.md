@@ -32,7 +32,8 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 
 - C1：`install_bundle` 后 Host 半 HMR 生效、Client 连接成功；`status/open/read(ax/text/links)` 与 tab 复用真机通过。
 - C2：remove/install 后 Host 半加载 C2（工具与提示词更新，`capabilities.act/verify:true`），34 项单测全绿；Origin 门禁在审批策略 `never` 会话中返回 `E_APPROVAL_DENIED`（fail-closed 生效）。
-- C2 真机动作（click/fill/press/verify/reload）待复测：插件重装后 Sidebar webview 消失，重新 `open` 需要审批；当前会话审批策略为 `never`。可切回 `ask` 审批、手动打开侧栏浏览器页，或配置 `trustedOrigins` 后复测。
+- C3：remove/install 后 Host 半加载 C3（`browser_use_screenshot` 与页面内视觉反馈）；真机 `hover` 动作、`verify`（URL/标题）与 `E_REF_STALE` 通过；CDP 关闭时截图返回 `E_CDP_UNAVAILABLE` 且带 `--remote-debugging-port` 提示。40 项单测全绿。
+- C2 剩余真机动作（click/fill/press/reload、敏感动作审批弹窗、跨站链接审批、CDP 开启后的截图）待复测：可切回 `ask` 审批、手动打开侧栏浏览器页，或带调试端口重启 DSH。
 
 ## 配置
 
