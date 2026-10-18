@@ -9,6 +9,9 @@ test('defaults: desktop bridge defaults are stable', () => {
   assert.equal(config.commandTimeoutMs, DEFAULTS.commandTimeoutMs)
   assert.equal(config.pollTimeoutMs, DEFAULTS.pollTimeoutMs)
   assert.equal(config.promptSection, true)
+  assert.equal(config.openReuseTab, true)
+  assert.equal(config.approvalPolicy, 'sensitive')
+  assert.equal(config.originApproval, 'ask')
   assert.deepEqual(config.allowedOrigins, ['dsh-app://app'])
 })
 
@@ -20,6 +23,8 @@ test('invalid values fall back with warnings', () => {
     promptSection: 'yes',
     openReuseTab: 0,
     maxBodyBytes: 10,
+    approvalPolicy: 'yolo',
+    originApproval: 'maybe',
   })
   assert.equal(config.bridgePort, DEFAULTS.bridgePort)
   assert.equal(config.commandTimeoutMs, DEFAULTS.commandTimeoutMs)
@@ -27,7 +32,9 @@ test('invalid values fall back with warnings', () => {
   assert.equal(config.promptSection, DEFAULTS.promptSection)
   assert.equal(config.openReuseTab, DEFAULTS.openReuseTab)
   assert.equal(config.maxBodyBytes, DEFAULTS.maxBodyBytes)
-  assert.equal(warnings.length, 6)
+  assert.equal(config.approvalPolicy, DEFAULTS.approvalPolicy)
+  assert.equal(config.originApproval, DEFAULTS.originApproval)
+  assert.equal(warnings.length, 8)
 })
 
 test('valid overrides are kept and the desktop origin is always allowed', () => {
@@ -39,6 +46,8 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
     promptSection: false,
     openReuseTab: false,
     maxBodyBytes: 4096,
+    approvalPolicy: 'all',
+    originApproval: 'off',
   })
   assert.equal(config.bridgePort, 9900)
   assert.equal(config.commandTimeoutMs, 12000)
@@ -46,6 +55,8 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
   assert.equal(config.promptSection, false)
   assert.equal(config.openReuseTab, false)
   assert.equal(config.maxBodyBytes, 4096)
+  assert.equal(config.approvalPolicy, 'all')
+  assert.equal(config.originApproval, 'off')
   assert.deepEqual(config.allowedOrigins, ['https://example.com', 'dsh-app://app'])
 })
 

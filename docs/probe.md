@@ -16,6 +16,12 @@
 | 10 | 重启恢复 | 完全重启 DSH 后插件重新加载，Client 重新握手，无孤儿端口 | | 待填 |
 | 11 | Web profile | Web profile 下 `browser_use_status` 报 Client 离线 / `supported:false`，不崩溃 | | 待填 |
 | 12 | 卸载清理 | 卸载插件并重启后桥端口释放，无残留进程 | | 待填 |
+| 13 | act 点击（非敏感） | `act {action:"click", target:{ref}, expectedGeneration}` 在页面生效，返回 url/title/generation | | 待填（C2） |
+| 14 | ref 失效 | 导航/刷新后用旧 generation 动作 → `E_REF_STALE` | | 待填（C2） |
+| 15 | 敏感动作审批 | 点击"提交/确认/支付"类目标会弹出审批；拒绝后不执行 | | 待填（C2） |
+| 16 | 验证器 | `browser_use_verify` 校验 URL/标题/文本/元素，`passed` 与证据一致 | | 待填（C2） |
+| 17 | 跨站链接审批 | 点击指向其他 Origin 的链接会先询问新 Origin | | 待填（C2） |
+| 18 | reload 后 generation | `act {action:"reload"}` 后 generation 递增，旧 ref 失效 | | 待填（C2） |
 
 > 2026-10-18 实机结论：Host 半经 HMR 生效、Client 半在打开中的 DSH 页面内自动激活；`status/open/read(ax)` 与 tab 复用均通过。
 > 首轮发现并修复了两个真实问题：① `links` 页面内函数未内联工具函数；② 页面热更新/刷新产生新 rendererId 导致短暂 `E_MULTIPLE_RENDERERS`（改为 sessionStorage 持久 rendererId + 聚焦窗口优先路由；Host 改动需完全重启后生效）。

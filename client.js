@@ -637,6 +637,494 @@ window.__ModuleLoader__.load({
     }
 
     /* ------------------------------------------------------------------ *
+     * Page-side action + verification helpers
+     * ------------------------------------------------------------------ */
+
+    function targetResolver(args) {
+      function normalize(value, limit) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, limit || 160)
+      }
+      function isVisible(element) {
+        try {
+          if (!element || !element.isConnected) return false
+          var style = window.getComputedStyle(element)
+          if (!style) return false
+          if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return false
+          if (Number(style.opacity) === 0) return false
+          var rect = element.getBoundingClientRect()
+          return rect.width >= 1 && rect.height >= 1
+        } catch (error) {
+          return false
+        }
+      }
+      function roleOf(element) {
+        var role = element.getAttribute('role')
+        if (role) return role
+        var tag = element.tagName
+        var map = {
+          A: 'link',
+          BUTTON: 'button',
+          INPUT: element.type === 'checkbox' || element.type === 'radio' ? element.type : 'textbox',
+          TEXTAREA: 'textbox',
+          SELECT: 'combobox',
+          IMG: 'img',
+        }
+        return map[tag] || 'generic'
+      }
+      function nameOf(element) {
+        var aria = element.getAttribute('aria-label')
+        if (aria) return normalize(aria)
+        var tag = element.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+          var placeholder = element.getAttribute('placeholder')
+          if (placeholder) return normalize(placeholder)
+          var nameAttr = element.getAttribute('name')
+          if (nameAttr) return normalize(nameAttr)
+          if (typeof element.value === 'string' && element.value) return normalize(element.value, 80)
+        }
+        var title = element.getAttribute('title')
+        if (title) return normalize(title)
+        var alt = element.getAttribute('alt')
+        if (alt) return normalize(alt)
+        return normalize(element.innerText || element.textContent)
+      }
+      function findTarget(target) {
+        if (!target) return null
+        if (target.ref && /^[A-Za-z0-9_-]+$/.test(String(target.ref))) {
+          return document.querySelector('[data-dsh-bu-ref="' + target.ref + '"]')
+        }
+        if (target.selector) {
+          try {
+            var listed = document.querySelectorAll(target.selector)
+            for (var i = 0; i < listed.length; i += 1) if (isVisible(listed[i])) return listed[i]
+            return listed[0] || null
+          } catch (error) {
+            return null
+          }
+        }
+        if (target.text) {
+          var wanted = normalize(target.text)
+          if (!wanted) return null
+          var nodes = document.querySelectorAll(
+            'a,button,[role="button"],[role="link"],input,select,textarea,label,h1,h2,h3,h4,p,li,td,span,div',
+          )
+          for (var j = 0; j < nodes.length; j += 1) {
+            var node = nodes[j]
+            if (!isVisible(node)) continue
+            var text = normalize(node.innerText || node.textContent)
+            if (text && text.indexOf(wanted) >= 0) return node
+          }
+        }
+        return null
+      }
+      function metaOf(element) {
+        var rect = element.getBoundingClientRect()
+        var meta = {
+          ref: element.getAttribute('data-dsh-bu-ref') || '',
+          tag: element.tagName.toLowerCase(),
+          role: roleOf(element),
+          name: nameOf(element),
+          box: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
+        }
+        if (element.tagName === 'A' && element.href) meta.href = element.href
+        return meta
+      }
+      var element = findTarget((args && args.target) || null)
+      if (!element) {
+        return {
+          ok: false,
+          error: {
+            code: 'E_REF_STALE',
+            message: 'target not found (page changed or ref expired)',
+            hint: 'call browser_use_read again and use the new ref and generation',
+          },
+        }
+      }
+      return { ok: true, url: location.href, title: document.title, target: metaOf(element) }
+    }
+
+    function actRunner(args) {
+      function normalize(value, limit) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, limit || 160)
+      }
+      function isVisible(element) {
+        try {
+          if (!element || !element.isConnected) return false
+          var style = window.getComputedStyle(element)
+          if (!style) return false
+          if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return false
+          var rect = element.getBoundingClientRect()
+          return rect.width >= 1 && rect.height >= 1
+        } catch (error) {
+          return false
+        }
+      }
+      function roleOf(element) {
+        var role = element.getAttribute('role')
+        if (role) return role
+        var tag = element.tagName
+        var map = { A: 'link', BUTTON: 'button', INPUT: 'textbox', TEXTAREA: 'textbox', SELECT: 'combobox', IMG: 'img' }
+        return map[tag] || 'generic'
+      }
+      function nameOf(element) {
+        return normalize(
+          element.getAttribute('aria-label') ||
+            element.getAttribute('title') ||
+            element.getAttribute('placeholder') ||
+            element.innerText ||
+            element.textContent,
+        )
+      }
+      function findTarget(target) {
+        if (!target) return null
+        if (target.ref && /^[A-Za-z0-9_-]+$/.test(String(target.ref))) {
+          return document.querySelector('[data-dsh-bu-ref="' + target.ref + '"]')
+        }
+        if (target.selector) {
+          try {
+            var listed = document.querySelectorAll(target.selector)
+            for (var i = 0; i < listed.length; i += 1) if (isVisible(listed[i])) return listed[i]
+            return listed[0] || null
+          } catch (error) {
+            return null
+          }
+        }
+        if (target.text) {
+          var wanted = normalize(target.text)
+          var nodes = document.querySelectorAll('a,button,[role="button"],[role="link"],input,label,h1,h2,h3,p,li,span,div')
+          for (var j = 0; j < nodes.length; j += 1) {
+            if (!isVisible(nodes[j])) continue
+            if (normalize(nodes[j].innerText || nodes[j].textContent).indexOf(wanted) >= 0) return nodes[j]
+          }
+        }
+        return null
+      }
+      function metaOf(element) {
+        var rect = element.getBoundingClientRect()
+        var meta = {
+          ref: element.getAttribute('data-dsh-bu-ref') || '',
+          tag: element.tagName.toLowerCase(),
+          role: roleOf(element),
+          name: nameOf(element),
+          box: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
+        }
+        if (element.tagName === 'A' && element.href) meta.href = element.href
+        return meta
+      }
+      function fire(element, type, init) {
+        var payload = Object.assign({ bubbles: true, cancelable: true, composed: true }, init || {})
+        var EventCtor = window.Event
+        if (type.indexOf('pointer') === 0 && window.PointerEvent) EventCtor = window.PointerEvent
+        else if (type.indexOf('key') === 0 && window.KeyboardEvent) EventCtor = window.KeyboardEvent
+        else if (window.MouseEvent) EventCtor = window.MouseEvent
+        var event
+        try {
+          event = new EventCtor(type, payload)
+        } catch (error) {
+          event = document.createEvent('Event')
+          event.initEvent(type, true, true)
+        }
+        element.dispatchEvent(event)
+      }
+      function setNativeValue(element, value) {
+        var proto = Object.getPrototypeOf(element)
+        var descriptor = null
+        while (proto) {
+          var found = Object.getOwnPropertyDescriptor(proto, 'value')
+          if (found && found.set) {
+            descriptor = found
+            break
+          }
+          proto = Object.getPrototypeOf(proto)
+        }
+        if (descriptor) descriptor.set.call(element, value)
+        else element.value = value
+        fire(element, 'input', {})
+        fire(element, 'change', {})
+      }
+      var action = String((args && args.action) || '')
+      var target = args && args.target
+      var element = findTarget(target)
+      var needsElement = action !== 'waitFor'
+      if (needsElement && !element) {
+        return {
+          ok: false,
+          error: {
+            code: 'E_REF_STALE',
+            message: 'target not found (page changed or ref expired)',
+            hint: 'call browser_use_read again and use the new ref and generation',
+          },
+        }
+      }
+      if (element && typeof element.scrollIntoView === 'function') {
+        try {
+          element.scrollIntoView({ block: 'center', inline: 'center' })
+        } catch (error) {
+          /* ignore */
+        }
+      }
+      if (action === 'click') {
+        try {
+          element.focus()
+        } catch (error) {
+          /* ignore */
+        }
+        fire(element, 'pointerover', {})
+        fire(element, 'pointerenter', {})
+        fire(element, 'pointerdown', { button: 0 })
+        fire(element, 'mousedown', { button: 0 })
+        fire(element, 'pointerup', { button: 0 })
+        fire(element, 'mouseup', { button: 0 })
+        if (typeof element.click === 'function') element.click()
+        else fire(element, 'click', { button: 0 })
+      } else if (action === 'fill') {
+        try {
+          element.focus()
+        } catch (error) {
+          /* ignore */
+        }
+        if (typeof element.select === 'function' && element.tagName === 'INPUT') element.select()
+        setNativeValue(element, String(args.value === undefined ? '' : args.value))
+      } else if (action === 'type') {
+        try {
+          element.focus()
+        } catch (error) {
+          /* ignore */
+        }
+        var current = typeof element.value === 'string' ? element.value : ''
+        setNativeValue(element, current + String(args.value === undefined ? '' : args.value))
+      } else if (action === 'press') {
+        var key = String(args.key || '')
+        var active = element || document.activeElement || document.body
+        try {
+          active.focus()
+        } catch (error) {
+          /* ignore */
+        }
+        var keyCode = { Enter: 13, Escape: 27, Tab: 9, ArrowDown: 40, ArrowUp: 38, ArrowLeft: 37, ArrowRight: 39, Backspace: 8 }[key] || 0
+        fire(active, 'keydown', { key: key, code: key, keyCode: keyCode })
+        fire(active, 'keyup', { key: key, code: key, keyCode: keyCode })
+      } else if (action === 'scroll') {
+        var dx = Number.isFinite(Number(args.dx)) ? Number(args.dx) : 0
+        var dy = Number.isFinite(Number(args.dy)) ? Number(args.dy) : 400
+        if (element) {
+          try {
+            element.scrollIntoView({ block: 'center' })
+          } catch (error) {
+            /* ignore */
+          }
+        }
+        try {
+          window.scrollBy(dx, dy)
+        } catch (error) {
+          /* ignore */
+        }
+      } else if (action === 'hover') {
+        fire(element, 'pointerover', {})
+        fire(element, 'pointerenter', {})
+        fire(element, 'mousemove', {})
+      } else if (action === 'select') {
+        try {
+          element.focus()
+        } catch (error) {
+          /* ignore */
+        }
+        setNativeValue(element, String(args.value === undefined ? '' : args.value))
+      } else if (action === 'check' || action === 'uncheck') {
+        var desired = action === 'check'
+        if (typeof element.checked === 'boolean') {
+          if (element.checked !== desired) element.click()
+        } else {
+          element.setAttribute('aria-checked', desired ? 'true' : 'false')
+          element.click()
+        }
+      }
+      var result = {
+        ok: true,
+        action: action,
+        url: location.href,
+        title: document.title,
+      }
+      if (element) result.target = metaOf(element)
+      if (action === 'scroll') {
+        result.scroll = { x: window.scrollX, y: window.scrollY }
+      }
+      return result
+    }
+
+    function verifyRunner(args) {
+      function normalize(value, limit) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, limit || 500)
+      }
+      function normalizeUrl(value) {
+        try {
+          var url = new URL(value)
+          url.hash = ''
+          return url.toString().replace(/\/$/u, '')
+        } catch (error) {
+          return String(value || '')
+        }
+      }
+      function isVisible(element) {
+        try {
+          var style = window.getComputedStyle(element)
+          if (!style || style.display === 'none' || style.visibility === 'hidden') return false
+          var rect = element.getBoundingClientRect()
+          return rect.width >= 1 && rect.height >= 1
+        } catch (error) {
+          return false
+        }
+      }
+      function findTarget(target) {
+        if (!target) return null
+        if (target.ref && /^[A-Za-z0-9_-]+$/.test(String(target.ref))) {
+          return document.querySelector('[data-dsh-bu-ref="' + target.ref + '"]')
+        }
+        if (target.selector) {
+          try {
+            var listed = document.querySelectorAll(target.selector)
+            for (var i = 0; i < listed.length; i += 1) if (isVisible(listed[i])) return listed[i]
+            return listed[0] || null
+          } catch (error) {
+            return null
+          }
+        }
+        if (target.text) {
+          var wanted = normalize(target.text)
+          var nodes = document.querySelectorAll('a,button,input,label,h1,h2,h3,p,li,span,div')
+          for (var j = 0; j < nodes.length; j += 1) {
+            if (!isVisible(nodes[j])) continue
+            if (normalize(nodes[j].innerText || nodes[j].textContent).indexOf(wanted) >= 0) return nodes[j]
+          }
+        }
+        return null
+      }
+      var checks = []
+      var currentUrl = location.href
+      if (args.url !== undefined) {
+        checks.push({
+          name: 'url',
+          expected: String(args.url),
+          actual: currentUrl,
+          pass: normalizeUrl(args.url) === normalizeUrl(currentUrl),
+        })
+      }
+      if (args.title !== undefined) {
+        var expectedTitle = String(args.title)
+        var actualTitle = document.title || ''
+        checks.push({
+          name: 'title',
+          expected: expectedTitle,
+          actual: actualTitle,
+          pass: actualTitle === expectedTitle || actualTitle.indexOf(expectedTitle) >= 0,
+        })
+      }
+      var pageText = ''
+      try {
+        pageText = (document.body ? document.body.innerText : '').replace(/\s+/g, ' ').trim()
+      } catch (error) {
+        pageText = ''
+      }
+      if (args.text !== undefined) {
+        var expectedText = String(args.text)
+        checks.push({
+          name: 'text',
+          expected: expectedText,
+          actual: pageText.slice(0, 500),
+          pass: pageText.indexOf(expectedText) >= 0,
+        })
+      }
+      if (args.element !== undefined) {
+        var element = findTarget(args.element)
+        checks.push({
+          name: 'element',
+          expected: JSON.stringify(args.element),
+          actual: element ? normalize(element.innerText || element.textContent) : null,
+          pass: Boolean(element && isVisible(element)),
+        })
+      }
+      if (checks.length === 0) {
+        return { ok: false, error: { code: 'E_BAD_REQUEST', message: 'no verification checks were provided' } }
+      }
+      var passed = checks.every(function (check) {
+        return check.pass
+      })
+      return {
+        ok: true,
+        passed: passed,
+        url: currentUrl,
+        title: document.title,
+        checks: checks,
+        hint: passed ? undefined : 'one or more checks failed; report the actual values instead of claiming success',
+      }
+    }
+
+    function waitForRunner(args) {
+      function normalize(value) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 160)
+      }
+      function isVisible(element) {
+        try {
+          var style = window.getComputedStyle(element)
+          if (!style || style.display === 'none' || style.visibility === 'hidden') return false
+          var rect = element.getBoundingClientRect()
+          return rect.width >= 1 && rect.height >= 1
+        } catch (error) {
+          return false
+        }
+      }
+      function findTarget(target) {
+        if (!target) return null
+        if (target.ref && /^[A-Za-z0-9_-]+$/.test(String(target.ref))) {
+          return document.querySelector('[data-dsh-bu-ref="' + target.ref + '"]')
+        }
+        if (target.selector) {
+          try {
+            var listed = document.querySelectorAll(target.selector)
+            for (var i = 0; i < listed.length; i += 1) if (isVisible(listed[i])) return listed[i]
+            return listed[0] || null
+          } catch (error) {
+            return null
+          }
+        }
+        if (target.text) {
+          var wanted = normalize(target.text)
+          var nodes = document.querySelectorAll('a,button,input,label,h1,h2,h3,p,li,span,div')
+          for (var j = 0; j < nodes.length; j += 1) {
+            if (!isVisible(nodes[j])) continue
+            if (normalize(nodes[j].innerText || nodes[j].textContent).indexOf(wanted) >= 0) return nodes[j]
+          }
+        }
+        return null
+      }
+      var element = findTarget(args.target || args)
+      return {
+        found: Boolean(element),
+        target: element
+          ? {
+              ref: element.getAttribute('data-dsh-bu-ref') || '',
+              tag: element.tagName.toLowerCase(),
+              name: normalize(element.getAttribute('aria-label') || element.innerText || element.textContent),
+            }
+          : null,
+        url: location.href,
+        title: document.title,
+      }
+    }
+
+    /* ------------------------------------------------------------------ *
      * Command dispatch
      * ------------------------------------------------------------------ */
 
@@ -833,6 +1321,148 @@ window.__ModuleLoader__.load({
       }
     }
 
+    async function dispatchResolve(args) {
+      var expected = args && args.expectedGeneration ? String(args.expectedGeneration) : ''
+      if (expected && expected !== 'g-' + generation) {
+        return failure(
+          'E_REF_STALE',
+          'page changed since the last read (expected ' + expected + ', current g-' + generation + ')',
+          'call browser_use_read again',
+        )
+      }
+      var target = findBestWebview(null)
+      if (!target) return failure('E_NO_WEBVIEW', 'no Sidebar browser webview found', 'call browser_use_open first')
+      try {
+        var resolved = await executeInPage(
+          target,
+          '(' + targetResolver.toString() + ')(' + JSON.stringify({ target: args && args.target }) + ')',
+        )
+        if (!resolved) return failure('E_RESOLVE_FAILED', 'target resolver returned no result')
+        if (resolved.ok === false) {
+          return failure(
+            (resolved.error && resolved.error.code) || 'E_REF_STALE',
+            (resolved.error && resolved.error.message) || 'target not found',
+            resolved.error && resolved.error.hint,
+          )
+        }
+        return resolved
+      } catch (error) {
+        return failure(error && error.code ? error.code : 'E_RESOLVE_FAILED', cleanText(error && error.message))
+      }
+    }
+
+    async function dispatchAct(args) {
+      var action = String((args && args.action) || '')
+      var expected = args && args.expectedGeneration ? String(args.expectedGeneration) : ''
+      if (expected && expected !== 'g-' + generation) {
+        return failure(
+          'E_REF_STALE',
+          'page changed since the last read (expected ' + expected + ', current g-' + generation + ')',
+          'call browser_use_read again, then retry with the new generation',
+        )
+      }
+      var target = findBestWebview(null)
+      if (!target) return failure('E_NO_WEBVIEW', 'no Sidebar browser webview found', 'call browser_use_open first')
+      try {
+        if (action === 'reload' || action === 'back' || action === 'forward') {
+          try {
+            if (action === 'reload') target.reload()
+            else if (action === 'back') target.goBack()
+            else target.goForward()
+          } catch (error) {
+            return failure('E_UNSUPPORTED', 'cannot ' + action + ': ' + cleanText(error && error.message))
+          }
+          await sleep(120)
+          var loadResult = await waitForLoad(target, LOAD_TIMEOUT_MS)
+          if (!loadResult.ok) return failure(loadResult.error.code, loadResult.error.message)
+          var nextGeneration = bumpGeneration()
+          return {
+            ok: true,
+            action: action,
+            url: webviewUrl(target),
+            title: webviewTitle(target),
+            generation: nextGeneration,
+          }
+        }
+        if (action === 'waitFor') {
+          var timeout = Math.max(200, Math.min(60000, Number(args.timeoutMs) || 5000))
+          var started = Date.now()
+          var waitArgs = { target: args.target || null }
+          while (Date.now() - started <= timeout) {
+            var foundState = await executeInPage(
+              target,
+              '(' + waitForRunner.toString() + ')(' + JSON.stringify(waitArgs) + ')',
+            )
+            if (foundState && foundState.found) {
+              return {
+                ok: true,
+                action: 'waitFor',
+                found: true,
+                target: foundState.target,
+                url: foundState.url,
+                title: foundState.title,
+                generation: 'g-' + generation,
+              }
+            }
+            await sleep(200)
+          }
+          return failure('E_WAIT_TIMEOUT', 'waitFor timed out after ' + timeout + 'ms', 'read the page and check the target')
+        }
+        var actArgs = {
+          action: action,
+          target: args.target || null,
+          value: args.value,
+          key: args.key,
+          dx: args.dx,
+          dy: args.dy,
+        }
+        var result = await executeInPage(
+          target,
+          '(' + actRunner.toString() + ')(' + JSON.stringify(actArgs) + ')',
+        )
+        if (!result) return failure('E_ACT_FAILED', 'action returned no result')
+        if (result.ok === false) {
+          return failure(
+            (result.error && result.error.code) || 'E_ACT_FAILED',
+            (result.error && result.error.message) || 'action failed',
+            result.error && result.error.hint,
+          )
+        }
+        return { ...result, ok: true, generation: 'g-' + generation }
+      } catch (error) {
+        if (error && error.code) return failure(error.code, error.message, error.hint)
+        return failure('E_ACT_FAILED', cleanText(error && error.message))
+      }
+    }
+
+    async function dispatchVerify(args) {
+      var target = findBestWebview(null)
+      if (!target) return failure('E_NO_WEBVIEW', 'no Sidebar browser webview found', 'call browser_use_open first')
+      var timeout = Math.max(1000, Math.min(60000, Number(args && args.timeoutMs) || 3000))
+      var started = Date.now()
+      var verifyArgs = {
+        url: args && args.url,
+        title: args && args.title,
+        text: args && args.text,
+        element: args && args.element,
+      }
+      var last = null
+      while (Date.now() - started <= timeout) {
+        try {
+          last = await executeInPage(
+            target,
+            '(' + verifyRunner.toString() + ')(' + JSON.stringify(verifyArgs) + ')',
+          )
+        } catch (error) {
+          return failure(error && error.code ? error.code : 'E_VERIFY_FAILED', cleanText(error && error.message))
+        }
+        if (last && last.ok === true && last.passed === true) return last
+        await sleep(250)
+      }
+      if (last && last.ok === true) return last
+      return failure('E_VERIFY_FAILED', 'verification could not be evaluated')
+    }
+
     async function dispatch(ctx, op, args) {
       if (op === 'status') {
         try {
@@ -851,6 +1481,27 @@ window.__ModuleLoader__.load({
       if (op === 'read') {
         try {
           return success(await dispatchRead(args || {}))
+        } catch (error) {
+          return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
+        }
+      }
+      if (op === 'resolve') {
+        try {
+          return success(await dispatchResolve(args || {}))
+        } catch (error) {
+          return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
+        }
+      }
+      if (op === 'act') {
+        try {
+          return success(await dispatchAct(args || {}))
+        } catch (error) {
+          return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
+        }
+      }
+      if (op === 'verify') {
+        try {
+          return success(await dispatchVerify(args || {}))
         } catch (error) {
           return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
         }
