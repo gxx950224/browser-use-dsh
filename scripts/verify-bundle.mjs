@@ -51,7 +51,7 @@ const requiredFiles = [
   'README.md',
   'LICENSE',
   'CHANGELOG.md',
-  'docs/compatibility.md',
+  'docs/',
 ]
 for (const entry of requiredFiles) {
   check(`files includes ${entry}`, Array.isArray(pkg.files) && pkg.files.includes(entry))

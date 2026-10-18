@@ -51,6 +51,8 @@ const required = [
   'LICENSE',
   'CHANGELOG.md',
   'docs/compatibility.md',
+  'docs/positioning.md',
+  'docs/release-readiness.md',
 ]
 const forbidden = files.filter(
   (name) =>

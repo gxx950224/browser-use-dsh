@@ -37,6 +37,7 @@ window.__ModuleLoader__.load({
     }
     var panelListeners = new Set()
     var composerInputActions = null
+    var clientContext = null
 
     function setPanelState(patch) {
       panelState = Object.assign({}, panelState, patch || {}, { updatedAt: Date.now() })
@@ -204,7 +205,7 @@ window.__ModuleLoader__.load({
         version: value.version || PROTOCOL_VERSION,
         port: Number(value.port),
         token: String(value.token),
-        features: value.features && typeof value.features === 'object' ? value.features : { floatingPickButton: true },
+        features: value.features && typeof value.features === 'object' ? value.features : { floatingPickButton: true, annotationSendMode: 'insert' },
       }
     }
 
@@ -245,7 +246,7 @@ window.__ModuleLoader__.load({
               features:
                 result.payload.features && typeof result.payload.features === 'object'
                   ? result.payload.features
-                  : { floatingPickButton: true },
+                  : { floatingPickButton: true, annotationSendMode: 'insert' },
             }
             return bridgeInfo
           }
@@ -538,12 +539,20 @@ window.__ModuleLoader__.load({
             inserted = true
           }
           if (inserted) {
-            await new Promise(function (resolve) {
-              window.setTimeout(resolve, 30)
-            })
-            composerInputActions.submit()
-            pushPanelStep('批注已发送到聊天框', 'done')
-            return 'sent'
+            var sendMode =
+              bridgeInfo && bridgeInfo.features && bridgeInfo.features.annotationSendMode
+                ? bridgeInfo.features.annotationSendMode
+                : 'insert'
+            if (sendMode === 'submit') {
+              await new Promise(function (resolve) {
+                window.setTimeout(resolve, 30)
+              })
+              composerInputActions.submit()
+              pushPanelStep('批注已发送到聊天框', 'done')
+              return 'sent'
+            }
+            pushPanelStep('批注已插入聊天框', 'done')
+            return 'inserted'
           }
         }
       } catch (error) {
@@ -1919,12 +1928,13 @@ window.__ModuleLoader__.load({
             at: Date.now(),
           })
         }
-        showToast('已发送到聊天框…', 1500)
+        showToast('已送入聊天框…', 1500)
         clearAnnotations()
         setMode('idle')
         window.setTimeout(function () {
           var status = statusEl ? statusEl.textContent : ''
           if (status === 'sent') showToast('已发送到聊天框', 2200)
+          else if (status === 'inserted') showToast('已插入聊天框，请检查后发送', 3200)
           else if (status === 'copied') showToast('已复制批注到剪贴板，请粘贴发送', 3200)
           else if (status === 'failed') showToast('自动发送失败，请重试', 3200)
         }, 1200)
@@ -2421,6 +2431,14 @@ window.__ModuleLoader__.load({
         webview: target
           ? { url: webviewUrl(target), title: webviewTitle(target), visible: isVisible(target) }
           : null,
+        compat: {
+          protocol: PROTOCOL_VERSION,
+          sidebarRight: Boolean(clientContext && clientContext.sidebarRight),
+          slots: Boolean(clientContext && clientContext.slots),
+          sidebarRightTabs: Boolean(clientContext && clientContext.sidebarRightTabs),
+          composer: Boolean(composerInputActions),
+          webview: webviews.length > 0,
+        },
         panel: {
           registered: panelState.registered,
           state: panelState.state,
@@ -2436,6 +2454,10 @@ window.__ModuleLoader__.load({
                 insertText: typeof composerInputActions.insertText === 'function',
                 setDraft: typeof composerInputActions.setDraft === 'function',
                 submit: typeof composerInputActions.submit === 'function',
+                sendMode:
+                  bridgeInfo && bridgeInfo.features && bridgeInfo.features.annotationSendMode
+                    ? bridgeInfo.features.annotationSendMode
+                    : 'insert',
               }
             : { available: false },
         },
@@ -2986,6 +3008,7 @@ window.__ModuleLoader__.load({
     return {
       inject: ['sidebarRight'],
       apply: function apply(ctx) {
+        clientContext = ctx
         ctx.effect(function () {
           var loop = createBridgeLoop(ctx)
           return function () {
@@ -3054,18 +3077,28 @@ window.__ModuleLoader__.load({
                 ])
               }
 
-              var disposeType = scope.sidebarRightTabs.register({
-                id: PANEL_ID,
-                kind: PANEL_KIND,
-                title: function () {
-                  return PANEL_TITLE
-                },
-                keepMounted: true,
-              })
-              var disposeSlot = scope.slots.register(
-                { name: 'sidebar.right.pane.tab', key: PANEL_ID },
-                BrowserUsePanel,
-              )
+              var disposeType
+              var disposeSlot
+              try {
+                disposeType = scope.sidebarRightTabs.register({
+                  id: PANEL_ID,
+                  kind: PANEL_KIND,
+                  title: function () {
+                    return PANEL_TITLE
+                  },
+                  keepMounted: true,
+                })
+                disposeSlot = scope.slots.register(
+                  { name: 'sidebar.right.pane.tab', key: PANEL_ID },
+                  BrowserUsePanel,
+                )
+              } catch (error) {
+                setPanelState({
+                  registered: false,
+                  message: '面板不可用：' + cleanText(error && error.message),
+                })
+                return function () {}
+              }
               setPanelState({ registered: true })
               return function () {
                 setPanelState({ registered: false })
@@ -3096,10 +3129,18 @@ window.__ModuleLoader__.load({
                 if (props && props.inputActions) composerInputActions = props.inputActions
                 return null
               }
-              var disposeBridge = scope.slots.register(
-                { name: 'conversation.composer.dock', id: 'browser-use-composer-bridge', order: 1 },
-                ComposerBridge,
-              )
+              var disposeBridge
+              try {
+                disposeBridge = scope.slots.register(
+                  { name: 'conversation.composer.dock', id: 'browser-use-composer-bridge', order: 1 },
+                  ComposerBridge,
+                )
+              } catch (error) {
+                setPanelState({
+                  composerBridge: 'unavailable: ' + cleanText(error && error.message),
+                })
+                return function () {}
+              }
               return function () {
                 composerInputActions = null
                 try {

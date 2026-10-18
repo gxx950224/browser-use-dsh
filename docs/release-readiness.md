@@ -138,6 +138,29 @@ Codex 的公开行为（结合官方 issue 与截图）：
 
 ---
 
+## 0.9.0 硬化结果（2026-10-18）
+
+已完成：
+
+- 定位改为“可见协作/批注层”，新增 `docs/positioning.md` 与官方组件探测/冲突提示；
+- `annotationSendMode` 默认 `insert`（只入草稿，不自动发送），`submit` 保留为显式配置；
+- `setText` 强制审批（`approvalPolicy: off` 除外）；
+- `browser_use_status.compat` / `client.compat` 做 DSH 版本与客户端能力预检；
+- 面板/ComposerBridge 注册失败不再炸整插件，批注回退剪贴板；
+- 增加 CI（verify + tests + pack-check）与兼容适配文档。
+
+仍不建议直接发 1.0：
+
+- 共享侧栏浏览器的 Session/Cookie 边界仍未改变（需要产品上明确二选一）；
+- 官方 Browser Use Provider 共存只做提示，未做“同页面互斥锁”；
+- 截图成功路径、接管、审批 UI、多窗口、Web profile 仍缺真机回归；
+- 元素→源码编辑闭环、上传/下载/多标签/console/network 仍未覆盖；
+- npm 公开发布、repository/homepage/bugs 元数据、发布回滚演练未完成。
+
+建议：以 `0.9.0` 作为 **Beta / next 标签** 发布候选；完成真机回归与元数据后再谈正式版。
+
+---
+
 ## 6. 外部参考
 
 - DSH Browser Use 子系统文档：https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/browser-use.md

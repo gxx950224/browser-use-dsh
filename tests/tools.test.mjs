@@ -104,6 +104,40 @@ test('status advertises act/verify/screenshot/visual capabilities', async () => 
   assert.equal(value.capabilities.panel, true)
   assert.equal(value.capabilities.approval.sensitiveActions, 'sensitive')
   assert.equal(value.capabilities.approval.newOrigins, 'ask')
+  assert.equal(value.capabilities.annotationSendMode, 'insert')
+  assert.equal(typeof value.official, 'object')
+  assert.equal(typeof value.compat, 'object')
+  assert.equal(value.compat.protocol, 1)
+})
+
+test('setText always asks approval and fails closed when rejected', async () => {
+  let asked = 0
+  const { ctx, bridge } = setup({
+    approval: {
+      async request() {
+        asked += 1
+        return 'rejected'
+      },
+    },
+    bridgeOverrides: {
+      resolve: {
+        ok: true,
+        url: 'https://example.com/',
+        target: { tag: 'h2', role: 'heading', name: '标题' },
+      },
+    },
+  })
+  const value = await ctx.definitions.get('browser_use_act').execute(
+    { action: 'setText', target: { selector: 'h2' }, value: '666' },
+    {},
+  )
+  assert.equal(value.ok, false)
+  assert.equal(value.code, 'E_APPROVAL_DENIED')
+  assert.equal(asked, 1)
+  assert.deepEqual(
+    bridge.calls.filter((call) => call.op !== 'uiState').map((call) => call.op),
+    ['resolve'],
+  )
 })
 
 test('act requires expectedGeneration when a ref is used', async () => {

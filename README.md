@@ -1,9 +1,21 @@
 # @gxx-labs/browser-use-dsh
 
-DSH Desktop 可见浏览器 Agent：在右侧**内建 Browser tab** 中观察、操作并验证网页；动作时页面内显示 Agent 光标/目标高亮，支持审批、CDP 截图，以及右侧 Browser Use 状态面板（六态泛光 + 人工接管）。
+DSH Desktop 可见协作/批注层：在右侧**内建 Browser tab** 中把 Agent 的观察、操作、批注与审批可视化；动作时页面内显示 Agent 光标/目标高亮，支持审批、CDP 截图、右侧状态面板（六态泛光 + 人工接管）。**它不是官方 Browser Use Provider 的替代品。**
 
-> **版本 0.8.0（C1–C4 功能完成 + Codex 式元素批注 + 直接发送到聊天 + C5 发布准备）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧六态面板 + 接管/交还，以及页面右上角的 **「⌖ 选取元素」批注流程**（点选元素 → 评论框 → 多条批注 → **自动插入聊天输入框并发送**；不可用时回退复制）。
+> **版本 0.9.0（可见协作/批注层，正式上线硬化）**：`browser_use_status/open/read/act/screenshot/verify/panel`，ref+generation 失效校验，Origin/敏感动作审批，页面内光标/高亮/ripple，CDP 截图，右侧六态面板 + 接管/交还，页面右上角「⌖ 选取元素」批注流程（多批注 → **默认只插入聊天草稿，由用户检查后发送**；可配置自动发送）。
 > 官方内建 Browser 工具栏没有可注入的 slot，因此按钮放在网页内容右上角；可用 `floatingPickButton: false` 关闭。本仓库已完成构建/测试/打包校验；**尚未执行 npm publish**。发布就绪度见 [docs/release-readiness.md](docs/release-readiness.md)。
+
+## 与官方 Browser Use 的关系
+
+| | 官方 Browser Use（实验） | 本插件 |
+|---|---|---|
+| 浏览器 | 外置独立 Chromium，按 Session 隔离（Playwright MCP / Chrome DevTools MCP / Stagehand） | DSH 内建右侧 Browser（Electron webview） |
+| 模型工具 | `mcp__playwright-mcp__*` 等上游工具 | `browser_use_*` 自建工具 |
+| 隔离/登录态 | 每 Session 独立，可 attach 已有 Chrome | 同一 workspace 的 Session 共享侧栏浏览器存储 |
+| 定位 | 自主浏览/隔离任务 | **可见协作 + 元素批注 + 审批/接管** |
+| 冲突 | 官方 Provider 独占注册，不要自写 Provider | 不注册官方 Provider；不要与官方 Provider 同时操作同一页面 |
+
+选择建议：需要“每 Session 隔离、接管已有 Chrome、下载/上传/console/network”等完整浏览器能力时用官方 Provider；需要“让用户看得见、能批注/接管”的协作体验时用本插件。两者不要混用同一页面。详见 [docs/positioning.md](docs/positioning.md) 与 [docs/compatibility-adaptation.md](docs/compatibility-adaptation.md)。
 
 ## 安装（本地目录）
 
@@ -34,7 +46,7 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 | `browser_use_status` | 桥端口/在线 Client/当前侧栏浏览器页面；`detail:"summary"` 精简输出 |
 | `browser_use_open` | 在侧栏 Browser 中打开/复用 http(s) URL，等待加载完成；新 Origin 可能触发审批 |
 | `browser_use_read` | `mode:"ax"` 返回带稳定 `ref`（`eN`）、CSS 像素 box 与 `generation` 的语义节点；`text` / `links` / `html` 返回受限内容 |
-| `browser_use_act` | 单个动作：`click / fill / type / press / scroll / hover / select / check / uncheck / reload / back / forward / waitFor`；用 ref 时必须带 `expectedGeneration` |
+| `browser_use_act` | 单个动作：`click / fill / type / press / scroll / hover / select / check / uncheck / setText / reload / back / forward / waitFor`；用 ref 时必须带 `expectedGeneration`；`setText` 仅改本地 DOM 且默认需要审批 |
 | `browser_use_screenshot` | 通过 CDP 截取当前侧栏页面并以图片附件回传；仅 `127.0.0.1` + `type:"webview"`，需要 DSH 带 `--remote-debugging-port` 启动 |
 | `browser_use_verify` | 校验 URL / 标题 / 可见文本 / 元素，返回 `checks[]`；`passed:false` 表示失败 |
 | `browser_use_panel` | 打开/聚焦右侧 Browser Use 状态面板：六态泛光、页面信息、最近操作、接管/交还 |
@@ -63,6 +75,8 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
     openReuseTab: true
     approvalPolicy: sensitive
     originApproval: ask
+    annotationSendMode: insert
+    originApproval: ask
     trustedOrigins: []
     cdpPort: 9222
     visualFeedback: true
@@ -78,12 +92,13 @@ plugin_manager(action: "install_bundle", target: "D:\\AI\\dsh-plugins\\browser-u
 | `allowedOrigins` | `["dsh-app://app"]` | 允许读取 bridge config 的页面 origin；Desktop origin 会自动补齐 |
 | `promptSection` | `true` | 是否注入 Browser Use 系统提示 |
 | `openReuseTab` | `true` | 打开 URL 时优先复用已有侧栏浏览器页 |
-| `approvalPolicy` | `sensitive` | `sensitive` 只对敏感目标/回车提交询问；`all` 对每次 click/press/select/check 询问；`off` 关闭 |
+| `approvalPolicy` | `sensitive` | `sensitive` 只对敏感目标/回车提交询问；`all` 对每次 click/press/select/check/setText 询问；`off` 关闭 |
+| `annotationSendMode` | `insert` | 批注送入聊天框的方式：`insert` 只插入草稿（安全默认，用户检查后发送）；`submit` 插入后立即发送（旧行为） |
 | `originApproval` | `ask` | 每个 Session 首次访问新 Origin（含跨站链接）询问；`off` 关闭 |
 | `trustedOrigins` | `[]` | 直接放行的 Origin 白名单（跳过新 Origin 审批，不跳过敏感动作审批） |
 | `cdpPort` | `9222` | 截图用的回环 CDP 端口；需 DSH 以 `--remote-debugging-port=9222` 启动 |
 | `visualFeedback` | `true` | 动作时在页面内显示 Agent 光标/目标高亮/ripple（尊重 `prefers-reduced-motion`） |
-| `floatingPickButton` | `true` | 在当前网页右上角注入「⌖ 选取元素」按钮；指向元素后复制引用到剪贴板 |
+| `floatingPickButton` | `true` | 在当前网页右上角注入「⌖ 选取元素」批注按钮；可用 `annotationSendMode` 控制只插入还是自动发送 |
 | `commandTimeoutMs` | `30000` | 单次浏览器命令超时 |
 | `pollTimeoutMs` | `25000` | Client 长轮询保持时间 |
 | `maxBodyBytes` | `131072` | 桥请求体上限 |
@@ -122,7 +137,8 @@ DSH 内建右侧浏览器（Electron <webview>）
 - **页面内容不可信**：工具结果用 `<untrusted-page-content>` 包裹；审批不能在页面内绕过。
 - **截图需额外启动参数**：`browser_use_screenshot` 需要 DSH Desktop 以 `--remote-debugging-port=9222` 启动；否则返回 `E_CDP_UNAVAILABLE` 与启动提示，不会静默失败。
 - **右侧面板**：自注册 `browser-use-panel` tab + `sidebar.right.pane.tab` 正文，六态靠 `--dsw-*` 令牌与 `color-mix()` 表达，动画尊重 `prefers-reduced-motion`；面板里的"接管浏览器"会暂停 Agent（动作返回 `E_TAKEOVER`），"交还 Agent"后需重新 `browser_use_read`。
-- **元素批注按钮**：页面右上角「⌖ 选取元素」进入 Codex 式批注流程——悬停高亮、点击锁定（蓝色选框 + 编号气泡）、弹出「添加评论…」悬浮框（Enter 添加 / Ctrl+Enter 发送 / Esc 取消）；支持多条批注，底部「正在批注 · N」栏可发送或清除；发送时通过 `inputActions.insertText/setDraft + submit()` **直接插入当前聊天草稿并触发发送**（通过 `conversation.composer.dock` 捕获公开的 `inputActions`），不可用时自动回退复制；每条引用含评论、选择器、角色、可读名、文本、位置、链接与**所在卡片/区块标题**。这是插件能拿到的最接近官方 Browser 工具栏的位置——官方包没有工具栏扩展位。
+- **元素批注按钮**：页面右上角「⌖ 选取元素」进入类 Codex 批注流程——悬停高亮、点击锁定（蓝色选框 + 编号气泡）、弹出「添加评论…」悬浮框（Enter 添加 / Ctrl+Enter 发送 / Esc 取消）；支持多条批注，底部「正在批注 · N」栏可发送或清除；发送时通过 `conversation.composer.dock` 捕获公开的 `inputActions`，默认 `annotationSendMode: "insert"` **只插入当前草稿，由用户检查后发送**（`submit` 可恢复自动发送），不可用时回退复制；每条引用含评论、选择器、角色、可读名、文本、位置、链接与**所在卡片/区块标题**。官方内建 Browser 工具栏没有扩展 slot，这是最接近的位置。
+- **setText 审批**：`browser_use_act` 的 `setText` 只改本地 DOM（刷新即恢复），且除非 `approvalPolicy: off`，否则一律走用户审批。
 - **右侧状态面板/边缘泛光**已实现；人工接管状态机为 C4 范围，站点级持久策略、时间线导出、发布与兼容矩阵在 C5。
 - 多窗口优先路由到聚焦 DSH 窗口；页面刷新用 sessionStorage 保持 rendererId。
 

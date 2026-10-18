@@ -12,6 +12,7 @@ test('defaults: desktop bridge defaults are stable', () => {
   assert.equal(config.openReuseTab, true)
   assert.equal(config.approvalPolicy, 'sensitive')
   assert.equal(config.originApproval, 'ask')
+  assert.equal(config.annotationSendMode, 'insert')
   assert.equal(config.cdpPort, 9222)
   assert.equal(config.visualFeedback, true)
   assert.equal(config.floatingPickButton, true)
@@ -29,6 +30,7 @@ test('invalid values fall back with warnings', () => {
     maxBodyBytes: 10,
     approvalPolicy: 'yolo',
     originApproval: 'maybe',
+    annotationSendMode: 'sometimes',
     cdpPort: 80,
     visualFeedback: 'yes',
     floatingPickButton: 'yes',
@@ -41,10 +43,11 @@ test('invalid values fall back with warnings', () => {
   assert.equal(config.maxBodyBytes, DEFAULTS.maxBodyBytes)
   assert.equal(config.approvalPolicy, DEFAULTS.approvalPolicy)
   assert.equal(config.originApproval, DEFAULTS.originApproval)
+  assert.equal(config.annotationSendMode, DEFAULTS.annotationSendMode)
   assert.equal(config.cdpPort, DEFAULTS.cdpPort)
   assert.equal(config.visualFeedback, DEFAULTS.visualFeedback)
   assert.equal(config.floatingPickButton, DEFAULTS.floatingPickButton)
-  assert.equal(warnings.length, 11)
+  assert.equal(warnings.length, 12)
 })
 
 test('valid overrides are kept and the desktop origin is always allowed', () => {
@@ -58,6 +61,7 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
     maxBodyBytes: 4096,
     approvalPolicy: 'all',
     originApproval: 'off',
+    annotationSendMode: 'submit',
     trustedOrigins: ['https://example.com/'],
     cdpPort: 9333,
     visualFeedback: false,
@@ -71,6 +75,7 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
   assert.equal(config.maxBodyBytes, 4096)
   assert.equal(config.approvalPolicy, 'all')
   assert.equal(config.originApproval, 'off')
+  assert.equal(config.annotationSendMode, 'submit')
   assert.equal(config.cdpPort, 9333)
   assert.equal(config.visualFeedback, false)
   assert.equal(config.floatingPickButton, false)

@@ -3,6 +3,30 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.0 — 2026-10-18
+
+Production-hardening for the "visible collaboration / annotation layer" positioning; not yet
+published to npm.
+
+### Changed
+
+- Repositioned as a **companion** to the official Browser Use Provider, not a replacement.
+  Package description, README, prompt section and `docs/positioning.md` now say so explicitly.
+- Annotation delivery defaults to `annotationSendMode: "insert"`: the annotation is inserted
+  into the current draft and **not submitted**; the user reviews and sends. `"submit"` restores
+  the old auto-send behavior.
+- `setText` is now an approval action (unless `approvalPolicy: "off"`); it only changes local DOM.
+
+### Added
+
+- `browser_use_status` reports `official` (Browser Use seam/core/provider packages) and
+  `compat` (DSH version via `typert`, Node/platform/protocol) plus `client.compat` feature
+  detection for sidebarRight/slots/composer/webview.
+- Graceful degradation: panel and composer bridge registration failures are caught and
+  reported instead of breaking the plugin; annotation falls back to clipboard.
+- `docs/positioning.md`, `docs/compatibility-adaptation.md`, GitHub Actions CI, and package
+  docs included in the published file set.
+
 ## 0.8.3 — 2026-10-18
 
 - `browser_use_act` gains `setText`: replace an element's visible text with `value` (local DOM
