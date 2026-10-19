@@ -3312,12 +3312,27 @@ window.__ModuleLoader__.load({
       if (existing && existing.parentNode) existing.parentNode.removeChild(existing)
     }
 
+    function ensureToolbarPickStyle() {
+      var id = 'dsh-bu-toolbar-pick-style'
+      if (document.getElementById(id)) return
+      var style = document.createElement('style')
+      style.id = id
+      style.textContent =
+        'button[data-dsh-bu-toolbar-pick]{background:transparent!important;border:0!important;box-shadow:none!important;outline:0!important;appearance:none!important;-webkit-appearance:none!important;padding:6px!important;width:28px!important;height:28px!important;border-radius:var(--dsw-radius-sm)!important;color:var(--dsw-alias-label-secondary)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;line-height:1!important}' +
+        'button[data-dsh-bu-toolbar-pick]:hover{background:transparent!important;color:var(--dsw-alias-label-primary)!important}' +
+        'button[data-dsh-bu-toolbar-pick].on{background:transparent!important;color:var(--dsw-alias-interactive-primary)!important}' +
+        'button[data-dsh-bu-toolbar-pick]:focus,button[data-dsh-bu-toolbar-pick]:focus-visible{outline:0!important;box-shadow:none!important;border:0!important;background:transparent!important}' +
+        'button[data-dsh-bu-toolbar-pick] svg{width:15px!important;height:15px!important;display:block!important}'
+      document.head.appendChild(style)
+    }
+
     function ensureToolbarPickButton() {
       var enabled = !bridgeInfo || !bridgeInfo.features || bridgeInfo.features.toolbarPickButton !== false
       if (!enabled) {
         removeToolbarPickButton()
         return
       }
+      ensureToolbarPickStyle()
       var anchor = document.querySelector('[data-sidebar-right-panel] button[data-sidebar-right-mode]')
       if (!anchor || !anchor.parentElement) return
       var existing = document.querySelector('[data-dsh-bu-toolbar-pick]')
@@ -3330,6 +3345,31 @@ window.__ModuleLoader__.load({
       button.setAttribute('aria-label', '选取元素')
       button.title = '选取元素（给 Agent 圈选网页元素）'
       button.innerHTML = toolbarPickGlyph()
+      var lockedStyle = {
+        background: 'transparent',
+        border: '0',
+        boxShadow: 'none',
+        outline: '0',
+        appearance: 'none',
+        webkitAppearance: 'none',
+        padding: '6px',
+        width: '28px',
+        height: '28px',
+        borderRadius: 'var(--dsw-radius-sm)',
+        color: 'var(--dsw-alias-label-secondary)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        lineHeight: '1',
+        boxSizing: 'border-box',
+      }
+      Object.keys(lockedStyle).forEach(function (property) {
+        var cssProperty = property === 'webkitAppearance' ? '-webkit-appearance' : property.replace(/[A-Z]/g, function (letter) {
+          return '-' + letter.toLowerCase()
+        })
+        button.style.setProperty(cssProperty, lockedStyle[property], 'important')
+      })
       button.addEventListener('click', function (event) {
         event.preventDefault()
         event.stopPropagation()
