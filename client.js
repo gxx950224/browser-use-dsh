@@ -3395,6 +3395,21 @@ window.__ModuleLoader__.load({
       }
     }
 
+    function jsonSafe(value) {
+      try {
+        return JSON.parse(JSON.stringify(value))
+      } catch (error) {
+        return {
+          ok: false,
+          error: {
+            code: 'E_SERIALIZE',
+            message: 'action result could not be serialized',
+            hint: 're-read the page and retry with a simpler target',
+          },
+        }
+      }
+    }
+
     async function dispatchAct(args) {
       var action = String((args && args.action) || '')
       var expected = args && args.expectedGeneration ? String(args.expectedGeneration) : ''
@@ -3473,7 +3488,7 @@ window.__ModuleLoader__.load({
             result.error && result.error.hint,
           )
         }
-        return { ...result, ok: true, generation: 'g-' + generation }
+        return { ...jsonSafe(result), ok: true, generation: 'g-' + generation }
       } catch (error) {
         if (error && error.code) return failure(error.code, error.message, error.hint)
         return failure('E_ACT_FAILED', cleanText(error && error.message))
@@ -3554,7 +3569,7 @@ window.__ModuleLoader__.load({
           if (queryResult && queryResult.ok !== false) {
             pushPanelStep((op === 'find' ? '查找元素' : '提取内容') + ' · ' + String((args && (args.query || args.selector)) || ''), 'done')
           }
-          return success(queryResult)
+          return success(jsonSafe(queryResult))
         } catch (error) {
           setPanelState({ state: 'failed', message: cleanText(error && error.message) })
           return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
