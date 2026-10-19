@@ -138,6 +138,7 @@ browser_use_panel
 | `annotationSendMode` | `insert` | 批注只插入草稿；改成 `submit` 则自动发送 |
 | `floatingPickButton` | `true` | 是否显示右上角「⌖ 选取元素」 |
 | `visualFeedback` | `true` | 是否显示 Agent 光标/高亮/波纹 |
+| `annotationScreenshot` | `viewport` | 批注发送时自动附带一张当前视口截图；`off` 关闭 |
 | `cdpPort` | `9222` | 截图首选端口；被占用会自动尝试 9223/9333 等 |
 | `promptSection` | `true` | 是否把 Browser Use 使用说明注入模型提示 |
 | `trustedOrigins` | `[]` | 跳过新网站审批的站点白名单 |

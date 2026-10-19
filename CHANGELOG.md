@@ -5,6 +5,9 @@ The plugin targets DSH Desktop and is installed with `plugin_manager install_bun
 
 ## 0.9.8 — 2026-10-19
 
+- Annotation batches now attach a viewport screenshot to the chat draft before the text is
+  inserted (`annotationScreenshot: "viewport"`), using native `capturePage()` + composer paste.
+  Set `annotationScreenshot: "off"` to keep text-only annotations.
 - Screenshot now prefers the native `<webview>.capturePage()` API, so DSH does **not** need
   `--remote-debugging-port` for viewport screenshots. CDP remains a fallback for full-page
   capture / older Electron builds.

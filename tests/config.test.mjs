@@ -13,6 +13,7 @@ test('defaults: desktop bridge defaults are stable', () => {
   assert.equal(config.approvalPolicy, 'sensitive')
   assert.equal(config.originApproval, 'ask')
   assert.equal(config.annotationSendMode, 'insert')
+  assert.equal(config.annotationScreenshot, 'viewport')
   assert.equal(config.cdpPort, 9222)
   assert.equal(config.visualFeedback, true)
   assert.equal(config.floatingPickButton, true)
@@ -31,6 +32,7 @@ test('invalid values fall back with warnings', () => {
     approvalPolicy: 'yolo',
     originApproval: 'maybe',
     annotationSendMode: 'sometimes',
+    annotationScreenshot: 'always',
     cdpPort: 80,
     visualFeedback: 'yes',
     floatingPickButton: 'yes',
@@ -44,10 +46,11 @@ test('invalid values fall back with warnings', () => {
   assert.equal(config.approvalPolicy, DEFAULTS.approvalPolicy)
   assert.equal(config.originApproval, DEFAULTS.originApproval)
   assert.equal(config.annotationSendMode, DEFAULTS.annotationSendMode)
+  assert.equal(config.annotationScreenshot, DEFAULTS.annotationScreenshot)
   assert.equal(config.cdpPort, DEFAULTS.cdpPort)
   assert.equal(config.visualFeedback, DEFAULTS.visualFeedback)
   assert.equal(config.floatingPickButton, DEFAULTS.floatingPickButton)
-  assert.equal(warnings.length, 12)
+  assert.equal(warnings.length, 13)
 })
 
 test('valid overrides are kept and the desktop origin is always allowed', () => {
@@ -62,6 +65,7 @@ test('valid overrides are kept and the desktop origin is always allowed', () => 
     approvalPolicy: 'all',
     originApproval: 'off',
     annotationSendMode: 'submit',
+    annotationScreenshot: 'off',
     trustedOrigins: ['https://example.com/'],
     cdpPort: 9333,
     visualFeedback: false,

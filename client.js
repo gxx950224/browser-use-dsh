@@ -550,6 +550,107 @@ window.__ModuleLoader__.load({
       return true
     }
 
+    var annotationAttachmentInfo = null
+
+    async function attachAnnotationScreenshot() {
+      var mode =
+        bridgeInfo && bridgeInfo.features && bridgeInfo.features.annotationScreenshot
+          ? bridgeInfo.features.annotationScreenshot
+          : 'viewport'
+      annotationAttachmentInfo = {
+        mode: mode,
+        editorFound: false,
+        captured: false,
+        bytes: 0,
+        eventDispatched: false,
+        eventPrevented: false,
+        imagesBefore: 0,
+        imagesAfter: 0,
+      }
+      if (mode === 'off') return false
+      var target = findBestWebview(null)
+      if (!target || typeof target.capturePage !== 'function') return false
+      if (!isVisible(target)) {
+        try {
+          openInBrowserTab(clientContext, webviewUrl(target))
+          await sleep(500)
+          target = findBestWebview(null) || target
+        } catch (error) {
+          annotationAttachmentInfo.error = 'reveal failed: ' + cleanText(error && error.message)
+        }
+      }
+      var editors = document.querySelectorAll('[data-lexical-editor="true"]')
+      var editor = null
+      for (var i = 0; i < editors.length; i += 1) {
+        var candidate = editors[i]
+        if (candidate && candidate.isConnected && candidate.getBoundingClientRect().width > 1) {
+          editor = candidate
+        }
+      }
+      if (!editor) return false
+      annotationAttachmentInfo.editorFound = true
+      var card = editor.closest('[data-composer-card]')
+      if (card) {
+        annotationAttachmentInfo.imagesBefore = card.querySelectorAll('img[src^="blob:"]').length
+      }
+      try {
+        var image = await target.capturePage()
+        var bytes = null
+        try {
+          var dataUrl = typeof image.toDataURL === 'function' ? image.toDataURL() : ''
+          var comma = String(dataUrl).indexOf(',')
+          if (comma >= 0) {
+            var binary = atob(String(dataUrl).slice(comma + 1))
+            bytes = new Uint8Array(binary.length)
+            for (var byteIndex = 0; byteIndex < binary.length; byteIndex += 1) {
+              bytes[byteIndex] = binary.charCodeAt(byteIndex)
+            }
+          }
+        } catch (dataUrlError) {
+          bytes = null
+        }
+        if (!bytes && typeof image.toPNG === 'function') {
+          var png = image.toPNG()
+          if (png) bytes = png instanceof Uint8Array ? png : new Uint8Array(png)
+        }
+        if (!bytes || bytes.length === 0) {
+          annotationAttachmentInfo.error = 'capturePage returned no image bytes'
+          return false
+        }
+        annotationAttachmentInfo.captured = true
+        annotationAttachmentInfo.bytes = bytes.length
+        var file = new File([bytes], 'browser-use-annotation-' + Date.now() + '.png', { type: 'image/png' })
+        var transfer = new DataTransfer()
+        transfer.items.add(file)
+        var event
+        try {
+          event = new ClipboardEvent('paste', {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: transfer,
+          })
+        } catch (error) {
+          event = new Event('paste', { bubbles: true, cancelable: true })
+          try {
+            Object.defineProperty(event, 'clipboardData', { value: transfer })
+          } catch (defineError) {
+            return false
+          }
+        }
+        editor.focus()
+        annotationAttachmentInfo.eventDispatched = true
+        editor.dispatchEvent(event)
+        annotationAttachmentInfo.eventPrevented = Boolean(event.defaultPrevented)
+        await sleep(250)
+        if (card) {
+          annotationAttachmentInfo.imagesAfter = card.querySelectorAll('img[src^="blob:"]').length
+        }
+        return annotationAttachmentInfo.imagesAfter > annotationAttachmentInfo.imagesBefore
+      } catch (error) {
+        return false
+      }
+    }
+
     async function deliverAnnotation(text) {
       if (!text) return 'failed'
       try {
@@ -557,6 +658,8 @@ window.__ModuleLoader__.load({
           composerInputActions &&
           typeof composerInputActions.submit === 'function'
         ) {
+          var screenshotAttached = await attachAnnotationScreenshot()
+          if (screenshotAttached) pushPanelStep('批注截图已附加', 'done')
           var span =
             typeof composerInputActions.captureInsertion === 'function'
               ? composerInputActions.captureInsertion()
