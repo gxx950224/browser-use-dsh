@@ -70,7 +70,7 @@ check('client registers through ModuleLoader', client.includes('window.__ModuleL
 check('client bundle id matches package', client.includes("id: '@gxx-labs/browser-use-dsh'"))
 check('client declares sidebarRight injection', client.includes("inject: ['sidebarRight']"))
 check('client does not import Harness client packages', !client.includes('@deepseek-ai/'))
-check('client does not call capturePage', !client.includes('capturePage'))
+check('client supports native capturePage', client.includes('capturePage'))
 check('client has an apply()', client.includes('apply: function apply'))
 check('client has no ESM export statements', !/^\s*export\s/mu.test(client))
 

@@ -123,7 +123,7 @@ browser_use_panel
 - 刷新、后退、前进、等待元素出现
 - 修改页面上的局部文字（仅本地 DOM，刷新即恢复，且需要审批）
 - 校验 URL、标题、页面文字、元素是否存在
-- 通过 CDP 截图
+- 通过原生 webview 截图（CDP 仅在 fullPage/兼容回退时使用）
 
 ---
 
@@ -164,13 +164,13 @@ browser_use_panel
 
 ### 截图提示 CDP 不可用
 
-截图需要 DSH Desktop 带调试端口启动，例如：
+截图默认使用 Electron `<webview>.capturePage()`，不需要调试端口。只有需要 fullPage 或原生截图失败时，才回退 CDP；此时可让 DSH 带调试端口启动，例如：
 
 ```text
 --remote-debugging-port=9223
 ```
 
-9222 被其它程序占用时会自动尝试 9223 等端口。没有带参数启动时，截图会明确报错，不会假装成功。
+9222 被其它程序占用时会自动尝试 9223 等端口。
 
 ### 新网站打不开 / 提示审批被拒绝
 
@@ -196,7 +196,7 @@ browser_use_panel
 - 没有下载/上传、多标签、console/network 等完整自动化能力；
 - 不能直接把网页元素映射到项目源码并修改代码；
 - 本地 HTML 需要先起 HTTP 服务，不能直接打开 `file://`；
-- 截图依赖 DSH 的远程调试端口；
+- 截图默认使用原生 `capturePage()`；fullPage 或原生失败时回退 CDP，后者需要远程调试端口；
 - 主要在 DSH Desktop + Windows 上验证，其它平台/版本尚未完整回归。
 
 ---

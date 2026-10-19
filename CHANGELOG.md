@@ -3,6 +3,13 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.8 — 2026-10-19
+
+- Screenshot now prefers the native `<webview>.capturePage()` API, so DSH does **not** need
+  `--remote-debugging-port` for viewport screenshots. CDP remains a fallback for full-page
+  capture / older Electron builds.
+- Raised the loopback result body limit for base64 screenshot payloads.
+
 ## 0.9.7 — 2026-10-19
 
 - Rewrote README for download users: installation, quick start, element annotation,

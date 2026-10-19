@@ -2536,7 +2536,12 @@ window.__ModuleLoader__.load({
     async function dispatchStatus() {
       var webviews = collectWebviews(document)
       var items = webviews.map(function (webview) {
-        return { url: webviewUrl(webview), title: webviewTitle(webview), visible: isVisible(webview) }
+        return {
+          url: webviewUrl(webview),
+          title: webviewTitle(webview),
+          visible: isVisible(webview),
+          nativeCapture: typeof webview.capturePage === 'function',
+        }
       })
       var target = findBestWebview(null)
       return {
@@ -2546,9 +2551,17 @@ window.__ModuleLoader__.load({
         href: location.href,
         generation: 'g-' + generation,
         webviewCount: webviews.length,
+        nativeCapture: webviews.some(function (webview) {
+          return typeof webview.capturePage === 'function'
+        }),
         webviews: items,
         webview: target
-          ? { url: webviewUrl(target), title: webviewTitle(target), visible: isVisible(target) }
+          ? {
+              url: webviewUrl(target),
+              title: webviewTitle(target),
+              visible: isVisible(target),
+              nativeCapture: typeof target.capturePage === 'function',
+            }
           : null,
         compat: {
           protocol: PROTOCOL_VERSION,
@@ -2972,6 +2985,79 @@ window.__ModuleLoader__.load({
           message: typeof patch.message === 'string' ? patch.message : panelState.message,
         })
         return { ok: true }
+      }
+      if (op === 'nativeScreenshot') {
+        try {
+          var nativeWebviews = collectWebviews(document)
+          var nativeTarget = findBestWebview(null)
+          if (!nativeTarget) return failure('E_NO_WEBVIEW', 'no Sidebar browser webview found', 'open the Browser tab first')
+          if (typeof nativeTarget.capturePage !== 'function') {
+            return failure(
+              'E_NATIVE_CAPTURE_UNAVAILABLE',
+              'this DSH/Electron webview does not expose capturePage()',
+              'keep the CDP fallback or update DSH Desktop',
+            )
+          }
+          if (!isVisible(nativeTarget)) {
+            try {
+              openInBrowserTab(ctx, webviewUrl(nativeTarget))
+              await new Promise(function (resolve) {
+                window.setTimeout(resolve, 500)
+              })
+              nativeTarget = findBestWebview(null) || nativeTarget
+            } catch (error) {
+              /* capturePage may still work on a hidden webview */
+            }
+          }
+          var image = await nativeTarget.capturePage()
+          var size = typeof image.getSize === 'function' ? image.getSize() : { width: 0, height: 0 }
+          var base64 = ''
+          try {
+            var dataUrl = typeof image.toDataURL === 'function' ? image.toDataURL() : ''
+            var comma = String(dataUrl).indexOf(',')
+            if (comma >= 0) base64 = String(dataUrl).slice(comma + 1)
+          } catch (error) {
+            base64 = ''
+          }
+          if (!base64 && typeof image.toPNG === 'function') {
+            var png = image.toPNG()
+            if (png) {
+              if (typeof png.toString === 'function') {
+                try {
+                  base64 = png.toString('base64')
+                } catch (error) {
+                  base64 = ''
+                }
+              }
+              if (!base64) {
+                var bytes = png instanceof Uint8Array ? png : new Uint8Array(png)
+                var binary = ''
+                var chunkSize = 0x8000
+                for (var offset = 0; offset < bytes.length; offset += chunkSize) {
+                  binary += String.fromCharCode.apply(null, bytes.subarray(offset, offset + chunkSize))
+                }
+                base64 = btoa(binary)
+              }
+            }
+          }
+          if (!base64) return failure('E_NATIVE_CAPTURE_FAILED', 'capturePage returned an empty image')
+          return success({
+            ok: true,
+            url: webviewUrl(nativeTarget),
+            title: webviewTitle(nativeTarget),
+            width: size.width,
+            height: size.height,
+            mediaType: 'image/png',
+            dataBase64: base64,
+            via: 'webview.capturePage',
+          })
+        } catch (error) {
+          return failure(
+            'E_NATIVE_CAPTURE_FAILED',
+            'webview.capturePage failed: ' + cleanText(error && error.message),
+            'CDP screenshot is still available when DSH is launched with --remote-debugging-port',
+          )
+        }
       }
       if (op === 'takeover') {
         var takeover = Boolean(args && args.takeover)
