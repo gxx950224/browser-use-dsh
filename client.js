@@ -1009,10 +1009,14 @@ window.__ModuleLoader__.load({
         var rowElements = elements.filter(function (element) {
           return element.tagName === 'TR'
         })
-        if (rowElements.length === 0 && elements[0].tagName === 'TABLE') {
+        if (rowElements.length === 0) {
           rowElements = Array.from(elements[0].querySelectorAll('tbody tr'))
         }
-        if (rowElements.length === 0) rowElements = Array.from(elements[0].querySelectorAll('tr'))
+        if (rowElements.length === 0) {
+          rowElements = Array.from(elements[0].querySelectorAll('tr')).filter(function (row) {
+            return !row.closest('thead')
+          })
+        }
         var rows = rowElements.slice(0, limit).map(function (row) {
           return Array.from(row.querySelectorAll('td,th')).map(function (cell) {
             return normalize(cell.innerText || cell.textContent, 300)
@@ -1461,13 +1465,17 @@ window.__ModuleLoader__.load({
         return null
       }
       function metaOf(element) {
+        function safeNumber(value) {
+          var number = Number(value)
+          return Number.isFinite(number) ? Math.round(number) : 0
+        }
         var rect = element.getBoundingClientRect()
         var meta = {
           ref: element.getAttribute('data-dsh-bu-ref') || '',
           tag: element.tagName.toLowerCase(),
           role: roleOf(element),
-          name: nameOf(element),
-          box: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
+          name: String(nameOf(element) || ''),
+          box: { x: safeNumber(rect.x), y: safeNumber(rect.y), w: safeNumber(rect.width), h: safeNumber(rect.height) },
         }
         if (element.tagName === 'A' && element.href) meta.href = element.href
         return meta
@@ -1486,7 +1494,7 @@ window.__ModuleLoader__.load({
       return { ok: true, url: location.href, title: document.title, target: metaOf(element) }
     }
 
-    function actRunner(args) {
+    async function actRunner(args) {
       function normalize(value, limit) {
         return String(value === undefined || value === null ? '' : value)
           .replace(/\s+/g, ' ')
@@ -1567,13 +1575,17 @@ window.__ModuleLoader__.load({
         return null
       }
       function metaOf(element) {
+        function safeNumber(value) {
+          var number = Number(value)
+          return Number.isFinite(number) ? Math.round(number) : 0
+        }
         var rect = element.getBoundingClientRect()
         var meta = {
           ref: element.getAttribute('data-dsh-bu-ref') || '',
           tag: element.tagName.toLowerCase(),
           role: roleOf(element),
-          name: nameOf(element),
-          box: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
+          name: String(nameOf(element) || ''),
+          box: { x: safeNumber(rect.x), y: safeNumber(rect.y), w: safeNumber(rect.width), h: safeNumber(rect.height) },
         }
         if (element.tagName === 'A' && element.href) meta.href = element.href
         return meta
@@ -1729,8 +1741,9 @@ window.__ModuleLoader__.load({
       }
       var action = String((args && args.action) || '')
       var target = args && args.target
+      var resultSelectedOption = ''
       var element = findTarget(target)
-      var needsElement = action !== 'waitFor'
+      var needsElement = action !== 'waitFor' && action !== 'press'
       if (needsElement && !element) {
         return {
           ok: false,
@@ -1781,6 +1794,22 @@ window.__ModuleLoader__.load({
         setNativeValue(element, current + String(args.value === undefined ? '' : args.value))
       } else if (action === 'press') {
         var key = String(args.key || '')
+        if (
+          /^(enter|numpadenter)$/i.test(key) &&
+          element &&
+          (element.closest('.el-select, .ant-select') ||
+            element.getAttribute('role') === 'combobox' ||
+            /请选择/.test(String(element.getAttribute('placeholder') || '')))
+        ) {
+          return {
+            ok: false,
+            error: {
+              code: 'E_USE_SELECT_OPTION',
+              message: 'press Enter on a select is not supported',
+              hint: 'use action:"selectOption" with optionText instead',
+            },
+          }
+        }
         var active = element || document.activeElement || document.body
         try {
           active.focus()
@@ -1816,6 +1845,86 @@ window.__ModuleLoader__.load({
           /* ignore */
         }
         setNativeValue(element, String(args.value === undefined ? '' : args.value))
+      } else if (action === 'selectOption') {
+        var desiredOption = String((args.optionText || args.value || '')).trim()
+        if (!desiredOption) {
+          return {
+            ok: false,
+            error: { code: 'E_BAD_REQUEST', message: 'optionText is required for selectOption' },
+          }
+        }
+        if (element.tagName === 'SELECT') {
+          setNativeValue(element, desiredOption)
+        } else {
+          function visibleOptions() {
+            return Array.from(
+              document.querySelectorAll(
+                '.el-select-dropdown__item, .ant-select-item-option, [role="option"], .el-dropdown-menu__item',
+              ),
+            ).filter(isVisible)
+          }
+          var options = visibleOptions()
+          if (options.length === 0) {
+            var opener = element.closest('.el-select, .ant-select, [role="combobox"]') || element
+            try {
+              element.focus()
+            } catch (error) {
+              /* ignore */
+            }
+            try {
+              element.click()
+            } catch (error) {
+              /* ignore */
+            }
+            if (visibleOptions().length === 0) {
+              try {
+                opener.click()
+              } catch (error) {
+                /* ignore */
+              }
+            }
+            await new Promise(function (resolve) {
+              window.setTimeout(resolve, 160)
+            })
+            options = visibleOptions()
+          }
+          var option = null
+          for (var oi = 0; oi < options.length; oi += 1) {
+            if (normalize(options[oi].innerText || options[oi].textContent) === desiredOption) {
+              option = options[oi]
+              break
+            }
+          }
+          if (!option) {
+            for (var ci = 0; ci < options.length; ci += 1) {
+              if (normalize(options[ci].innerText || options[ci].textContent).indexOf(desiredOption) >= 0) {
+                option = options[ci]
+                break
+              }
+            }
+          }
+          if (!option) {
+            return {
+              ok: false,
+              error: {
+                code: 'E_OPTION_NOT_FOUND',
+                message: 'option not found: ' + desiredOption,
+                hint: 'available: ' + options.map(function (node) {
+                  return normalize(node.innerText || node.textContent)
+                }).join(' | '),
+              },
+            }
+          }
+          try {
+            option.click()
+          } catch (error) {
+            fire(option, 'click', { button: 0 })
+          }
+          await new Promise(function (resolve) {
+            window.setTimeout(resolve, 80)
+          })
+        }
+        resultSelectedOption = desiredOption
       } else if (action === 'check' || action === 'uncheck') {
         var desired = action === 'check'
         if (typeof element.checked === 'boolean') {
@@ -1838,6 +1947,7 @@ window.__ModuleLoader__.load({
         url: location.href,
         title: document.title,
       }
+      if (resultSelectedOption) result.selectedOption = resultSelectedOption
       if (element) result.target = metaOf(element)
       if (action === 'scroll') {
         result.scroll = { x: window.scrollX, y: window.scrollY }
@@ -3346,6 +3456,7 @@ window.__ModuleLoader__.load({
           action: action,
           target: args.target || null,
           value: args.value,
+          optionText: args.optionText,
           key: args.key,
           dx: args.dx,
           dy: args.dy,

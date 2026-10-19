@@ -8,6 +8,10 @@ The plugin targets DSH Desktop and is installed with `plugin_manager install_bun
 - Added `browser_use_find`: locate visible elements by query/label/placeholder/role/selector and
   return compact matches with selectors, labels and boxes.
 - Added `browser_use_extract`: bounded text/table/list/form extraction by CSS selector.
+- Added `browser_use_act` action `selectOption` for Element Plus/Ant Design dropdowns; it clicks
+  the exact visible option instead of pressing Enter into a combobox. Targetless `press` (Escape/
+  arrow keys) now works, and target boxes are sanitized so actions no longer fail with
+  "invalid output: value is not lossless JSON".
 - Prompt now requires page tasks to start in the browser, prefer find/extract over whole-page
   AX/HTML reads, and explicitly forbids downloading site JS, scanning tokens, or bypassing the UI
   through business APIs.

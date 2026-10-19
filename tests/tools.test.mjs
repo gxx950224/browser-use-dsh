@@ -129,6 +129,23 @@ test('extract requires a selector and dispatches to the Client', async () => {
   )
 })
 
+test('selectOption dispatches optionText and press works without a target', async () => {
+  const { ctx, bridge } = setup()
+  const select = await ctx.definitions
+    .get('browser_use_act')
+    .execute({ action: 'selectOption', target: { selector: '#status' }, optionText: '未排期' }, {})
+  assert.equal(select.ok, true)
+  const selectCall = bridge.calls.filter((call) => call.op === 'act').at(-1)
+  assert.equal(selectCall.args.action, 'selectOption')
+  assert.equal(selectCall.args.optionText, '未排期')
+
+  const press = await ctx.definitions.get('browser_use_act').execute({ action: 'press', key: 'Escape' }, {})
+  assert.equal(press.ok, true)
+  const pressCall = bridge.calls.filter((call) => call.op === 'act').at(-1)
+  assert.equal(pressCall.args.action, 'press')
+  assert.equal(pressCall.args.key, 'Escape')
+})
+
 test('status advertises act/verify/screenshot/visual capabilities', async () => {
   const { ctx } = setup()
   const value = await ctx.definitions.get('browser_use_status').execute({ detail: 'summary' }, {})
