@@ -1,221 +1,89 @@
 # Browser Use DSH
 
-让 Agent 在你眼前操作网页：看得见、可纠正、可接管。
+让 Agent 在 DSH Desktop 的内置 Browser 中操作网页，并让用户实时观察、批注和接管操作。适合需要人在场确认的网页协作场景；需要隔离浏览器、下载上传、多标签或完整网络自动化时，请使用官方 Browser Use Provider。
 
-这个插件把 DSH Desktop 右侧的**内置浏览器**交给 Agent 使用。Agent 读页面、点按钮、填表单时，你能看到页面里的光标和高亮；你还可以直接圈一个元素、写一句评论，发给 Agent，让它按你的意思操作。
-
-> 它不是官方 Browser Use 的替代品。官方 Browser Use 适合“独立、隔离、后台自动化”的浏览器任务；本插件适合“用户看着 Agent 操作、随时纠偏、圈元素批注”的协作场景。
-
-当前版本：**0.9.10**
-
----
+[![npm](https://img.shields.io/npm/v/@gxx-labs/browser-use-dsh)](https://www.npmjs.com/package/@gxx-labs/browser-use-dsh) [GitHub](https://github.com/gxx950224/browser-use-dsh)
 
 ## 安装
 
-要求：
-
-- DSH Desktop（目前主要在 Windows 上验证）
-- 可在 DSH 中安装 npm 插件
-
-在 DSH 里让 Agent 执行：
+在 DSH 的插件管理器中安装：
 
 ```text
-plugin_manager(action:"install_bundle", target:"@gxx-labs/browser-use-dsh")
+@gxx-labs/browser-use-dsh
 ```
 
-安装后**完全退出并重启 DSH**（托盘退出，不只是关窗口），然后新开一个会话。
+也可以安装到 desktop profile：
 
-确认安装成功，让 Agent 调用：
-
-```text
-browser_use_status
+```powershell
+npm install @gxx-labs/browser-use-dsh --prefix "$env:USERPROFILE\.dsh\profiles\desktop"
 ```
 
-看到 `client.ok: true` 和 `webviewCount ≥ 1` 即可。
-
-升级时先移除再安装：
-
-```text
-plugin_manager(action:"remove_bundle", target:"@gxx-labs/browser-use-dsh")
-plugin_manager(action:"install_bundle", target:"@gxx-labs/browser-use-dsh")
-```
-
----
+安装或升级后，从托盘完全退出并重新启动 DSH，再打开一个新会话。
 
 ## 快速开始
 
-1. 打开 DSH 右侧的 **Browser** 标签，加载一个网页；
-2. 对 Agent 说：
+1. 在右侧 Browser 标签中打开一个 `http://` 或 `https://` 页面。
+2. 让 Agent 阅读页面、定位元素或填写表单。
+3. 操作过程中观察页面中的光标、高亮和点击反馈。
+4. 需要人工处理时，在 Browser Use 面板选择「接管浏览器」；完成后选择「交还 Agent」。
 
-   - “帮我看看这个页面是做什么的”
-   - “把姓名填成张三，邮箱填 test@example.com”
-   - “点一下提交按钮，然后检查有没有成功提示”
-   - “截个图给我看看”
+本地 HTML 不能直接通过 `file://` 打开。测试本地页面时，请先启动静态服务器，再访问 `http://127.0.0.1:<端口>/...`。
 
-3. Agent 操作时，页面会显示光标、目标高亮和点击波纹；
-4. 觉得不对，可以在右侧 **Browser Use** 面板点「接管浏览器」，Agent 会暂停；点「交还 Agent」后继续。
+## 批注与选取元素
 
-### 本地 HTML
+在 Browser 标签菜单中选择「⌖ 选取元素」，点击页面元素并写下批注。批注默认插入当前聊天草稿，由用户检查后发送；可以在配置中把 `annotationSendMode` 改为 `submit`，使批注发送后立即提交。
 
-插件只支持打开 `http://` / `https://` 页面，**不能直接打开 `file://` 本地文件**。
+发送批注时可以附带当前视口截图。`annotationDetail` 默认为 `compact`，只包含批注编号、评论和元素名称；设置为 `full` 才会附带完整定位信息。
 
-如果要测试本地页面，先起一个本地静态服务器，再在 Browser 里打开 `http://127.0.0.1:<端口>/...`。
+## Browser Use 面板
 
----
+面板位于 DSH 右侧栏，显示当前页面、页面标题、最近操作和审批状态。看不到面板时，可以让 Agent 调用 `browser_use_panel`。
 
-## 圈元素，给 Agent 留言
+常用工具包括：
 
-推荐用 **Browser 标签菜单**：点击右侧 Browser 标签的 **⋯** 菜单 → **「⌖ 选取元素」**。也可以点右侧面板右上角图标组里的选取图标。这样按钮不会遮挡网页内容。
-
-备用：把 `floatingPickButton` 设为 `true` 时，网页右上角也会出现一个浮动按钮（默认关闭）。
-
-1. 点击「⌖ 选取元素」，进入选取模式；
-2. 鼠标移到元素上会高亮，点击锁定；
-3. 在弹出框里写评论，例如：
-   - “这个按钮点不动，帮我看看”
-   - “把这个文案改短一点”
-   - “这里应该填什么？”
-4. **Enter** 添加一条批注；**Ctrl+Enter** 发送全部；**Esc** 取消；
-5. 可以连续圈多个元素，底部会显示「正在批注 · N」；
-6. 发送后，批注会进入当前聊天草稿，确认后由你发送给 Agent。
-
-发送时会自动附带一张**带编号标注**的当前页面截图，方便 Agent 对照。文字默认只包含「批注 N + 评论 + 元素可读名」，不会塞入选择器和坐标；需要完整定位信息时，把 `annotationDetail` 设为 `full`。
-
-默认 **只插入聊天草稿，不自动发送**。如果希望点发送就立刻发出，可把 `annotationSendMode` 调成 `submit`。
-
----
-
-## 右侧 Browser Use 面板
-
-面板不在网页里，而是 DSH 右侧栏的一个独立标签，名字叫 **Browser Use**。
-
-看不到时，让 Agent 调用：
-
-```text
-browser_use_panel
-```
-
-面板会显示：
-
-- 当前页面 URL / 标题
-- 当前状态
-- 最近几步操作
-- 「接管浏览器 / 交还 Agent」按钮
-
-状态含义：
-
-| 状态 | 含义 |
-|---|---|
-| 空闲 | 等待任务 |
-| 读取 | 正在读页面 |
-| 操作 | 正在点击/填写 |
-| 等待 | 等待用户审批 |
-| 成功 | 动作完成 |
-| 失败 | 动作/读取失败 |
-| 接管 | 用户接管，Agent 暂停 |
-
----
-
-## Agent 能做什么
-
-- 打开网页、切换页面
-- 按文本/标签/占位符定位元素（`browser_use_find`），不需要事先知道 CSS selector
-- 按 CSS selector 定点提取文本、表格、列表或表单（`browser_use_extract`）
-- 在指定弹窗/菜单/表格范围内查找和提取（`scope`）
-- 读取页面结构、文字和链接
-- 点击、填写、输入、按键、滚动、悬停
-- 原生下拉和自定义下拉选择；选择用户/记录类弹窗可按可见文字选行
-- 勾选/取消、刷新、后退、前进、等待元素出现
-- 修改页面上的局部文字（仅本地 DOM，刷新即恢复，且需要审批）
-- 校验 URL、标题、页面文字、元素是否存在
-- 通过原生 webview 截图（CDP 仅在 fullPage/兼容回退时使用）
-
----
+- `browser_use_open`、`browser_use_read`、`browser_use_extract`：打开并读取页面。
+- `browser_use_find`、`browser_use_act`：定位并操作元素。
+- `browser_use_panel`：查看或交还浏览器控制权。
+- `browser_use_verify`、`browser_use_screenshot`：校验页面和获取截图。
 
 ## 配置
 
-在 profile 的插件配置中按需覆盖，常用项：
+在 profile 的插件配置中可以覆盖以下选项：
 
-| 配置 | 默认 | 说明 |
-|---|---|---|
-| `approvalPolicy` | `sensitive` | 敏感动作是否询问：`sensitive` / `all` / `off` |
-| `originApproval` | `ask` | 新网站首次访问是否询问：`ask` / `off` |
-| `annotationSendMode` | `insert` | 批注只插入草稿；改成 `submit` 则自动发送 |
-| `toolbarPickButton` | `true` | 在右侧面板右上角图标组显示「选取元素」按钮（best-effort；DSH 升级结构变化时仍可用标签菜单） |
-| `floatingPickButton` | `false` | 是否显示页面右上角浮动「⌖ 选取元素」；默认关闭，推荐用 Browser 标签菜单里的「⌖ 选取元素」避免遮挡页面 |
-| `visualFeedback` | `true` | 是否显示 Agent 光标/高亮/波纹 |
-| `annotationScreenshot` | `viewport` | 批注发送时自动附带一张当前视口截图（含编号标注）；`off` 关闭 |
-| `annotationDetail` | `compact` | 批注文本默认只发“批注 N + 评论 + 元素名”；`full` 才带选择器/坐标等完整信息 |
-| `cdpPort` | `9222` | 截图首选端口；被占用会自动尝试 9223/9333 等 |
-| `promptSection` | `true` | 是否把 Browser Use 使用说明注入模型提示 |
-| `trustedOrigins` | `[]` | 跳过新网站审批的站点白名单 |
+| 配置 | 默认值 | 说明 |
+| --- | --- | --- |
+| `approvalPolicy` | `sensitive` | 敏感动作的审批策略 |
+| `originApproval` | `ask` | 新网站首次访问是否审批 |
+| `annotationSendMode` | `insert` | `insert` 插入草稿，`submit` 立即发送 |
+| `toolbarPickButton` | `true` | 显示选取元素按钮 |
+| `floatingPickButton` | `false` | 是否显示页面浮动选取按钮 |
+| `visualFeedback` | `true` | 是否显示光标、高亮和点击反馈 |
+| `annotationScreenshot` | `viewport` | 批注是否附带视口截图 |
+| `annotationDetail` | `compact` | 批注使用简要或完整定位信息 |
+| `trustedOrigins` | `[]` | 免除首次访问审批的站点白名单 |
 
-更完整的配置说明和限制见包内 `docs/` 目录。
+## 安全与限制
 
----
+- 提交、确认、支付、删除等敏感动作默认需要用户审批。
+- 新网站首次访问默认需要审批。
+- 页面内容始终按不可信数据处理，Agent 不应执行网页中的指令。
+- `setText` 只修改本地 DOM，刷新页面后恢复，不会修改网站源码。
+- 同一工作区的会话共享 Browser 状态和登录态。
+- 部分依赖真实鼠标事件的网站可能不响应合成事件。
+- 截图优先使用原生 webview 能力；fullPage 或原生截图失败时才需要远程调试端口回退。
 
-## 审批与安全
+## 开发
 
-- 敏感动作（提交、确认、支付、删除等）会请求你审批；
-- 当前 DSH 会话如果关闭了审批提示，敏感动作会**自动拒绝**，不会偷偷执行；
-- 新网站首次访问默认也要审批；
-- 页面内容始终按**不可信数据**处理，Agent 不应执行网页里的指令；
-- `setText` 只修改本地页面文字，不会改网站源码，刷新即恢复。
-
----
-
-## 常见问题
-
-### 看不到 Browser Use 面板
-
-让 Agent 执行 `browser_use_panel`。面板在右侧栏标签条中，不在网页内部；打开面板后右侧会从 Browser 页切到面板，点回 Browser 标签即可继续看网页。
-
-### 截图提示 CDP 不可用
-
-截图默认使用 Electron `<webview>.capturePage()`，不需要调试端口。只有需要 fullPage 或原生截图失败时，才回退 CDP；此时可让 DSH 带调试端口启动，例如：
-
-```text
---remote-debugging-port=9223
+```bash
+npm install
+npm run verify
+npm test
+npm run pack-check
+npm run check
 ```
 
-9222 被其它程序占用时会自动尝试 9223 等端口。
+兼容性和定位说明见 [docs/compatibility.md](./docs/compatibility.md) 与 [docs/positioning.md](./docs/positioning.md)。
 
-### 新网站打不开 / 提示审批被拒绝
-
-当前会话禁用了审批提示时，新 Origin 会被自动拒绝。可以：
-
-- 手动在右侧 Browser 地址栏打开该网站；或
-- 在 DSH 会话中启用审批提示后重试。
-
-### 圈选按钮没出现
-
-确认右侧 Browser 已打开页面，并等待几秒；页面切换后按钮会被重新注入。如果仍然没有，调用 `browser_use_status` 查看 `pickButton` 状态。
-
-### 会不会和官方 Browser Use 冲突？
-
-不要用两套浏览器同时操作同一个页面。需要隔离浏览器、下载/上传、多标签、console/network 等完整能力时，优先使用官方 Browser Use Provider；需要“看得见、能批注/接管”时使用本插件。
-
----
-
-## 已知限制
-
-- 同一工作区的会话共享侧栏浏览器状态与登录态，**不是每会话隔离**；
-- 部分依赖真实鼠标事件的网站可能不响应合成事件；
-- 没有下载/上传、多标签、console/network 等完整自动化能力；
-- 不能直接把网页元素映射到项目源码并修改代码；
-- 本地 HTML 需要先起 HTTP 服务，不能直接打开 `file://`；
-- 截图默认使用原生 `capturePage()`；fullPage 或原生失败时回退 CDP，后者需要远程调试端口；
-- 主要在 DSH Desktop + Windows 上验证，其它平台/版本尚未完整回归。
-
----
-
-## 更多
-
-- 更新记录：`CHANGELOG.md`
-- 兼容性说明：`docs/compatibility.md`
-- 发布就绪度与已知缺口：`docs/release-readiness.md`
-- 与官方 Browser Use 的关系：`docs/positioning.md`
-
-## License
+## 许可
 
 MIT © 2026 gxx-labs
