@@ -145,6 +145,8 @@ window.__ModuleLoader__.load({
       '.bu8f3a2c71_sd_paused{background:var(--dsw-alias-state-warning)}' +
       '.bu8f3a2c71_empty{padding:10px;border:1px dashed var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-tertiary);font-size:var(--dsw-font-xxs)}' +
       '.bu8f3a2c71_foot{margin-top:auto;font-size:var(--dsw-font-xxs);color:var(--dsw-alias-label-tertiary)}' +
+      '.bu8f3a2c71_menu_item{all:unset;box-sizing:border-box;display:block;width:100%;padding:7px 12px;border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-primary);font:inherit;font-size:var(--dsw-font-xxs);text-align:left;cursor:pointer}' +
+      '.bu8f3a2c71_menu_item:hover{background:var(--dsw-alias-interactive-bg-hover)}' +
       '@keyframes bu8f3a2c71_breathe{0%,100%{opacity:.45}50%{opacity:1}}' +
       '@keyframes bu8f3a2c71_pulse{0%,100%{opacity:.5}50%{opacity:1}}' +
       '@media (prefers-reduced-motion: reduce){.bu8f3a2c71_root::after{animation:none!important}}'
@@ -508,6 +510,18 @@ window.__ModuleLoader__.load({
         var features = bridgeInfo.features || {}
         if (features.floatingPickButton === false) {
           setPanelState({ pickButton: { enabled: false } })
+          try {
+            var currentTarget = findBestWebview(null)
+            if (currentTarget) {
+              await executeInPage(
+                currentTarget,
+                '(function(){var host=document.getElementById("dsh-browser-use-annotator");if(host&&host.shadowRoot){var bar=host.shadowRoot.querySelector(".toolbar");if(bar)bar.style.display="none"}var api=window.__dshBrowserUseAnnotator;if(api&&typeof api.clear==="function")api.clear();var old=document.getElementById("dsh-browser-use-pick-host");if(old&&old.parentNode)old.parentNode.removeChild(old);return true})()',
+                3000,
+              )
+            }
+          } catch (error) {
+            /* no page to clean up */
+          }
           return
         }
         var target = findBestWebview(null)
@@ -1669,13 +1683,20 @@ window.__ModuleLoader__.load({
       }
     }
 
-    function floatingAnnotator() {
+    function floatingAnnotator(options) {
       var HOST_ID = 'dsh-browser-use-annotator'
       var LEGACY_ID = 'dsh-browser-use-pick-host'
-      var UI_VERSION = '2026-10-18-5'
+      var UI_VERSION = '2026-10-19-1'
+      var hideButton = Boolean(options && options.hideButton)
       var existing = document.getElementById(HOST_ID)
       if (existing) {
         if (existing.getAttribute('data-dsh-bu-ui-version') === UI_VERSION) {
+          try {
+            var existingToolbar = existing.shadowRoot && existing.shadowRoot.querySelector('.toolbar')
+            if (existingToolbar) existingToolbar.style.display = hideButton ? 'none' : 'flex'
+          } catch (error) {
+            /* ignore */
+          }
           return { ok: true, reused: true }
         }
         existing.remove()
@@ -2288,6 +2309,23 @@ window.__ModuleLoader__.load({
       window.addEventListener('scroll', reposition, true)
       window.addEventListener('resize', reposition)
       document.documentElement.appendChild(host)
+      try {
+        window.__dshBrowserUseAnnotator = {
+          start: function () {
+            if (mode === 'idle') setMode('select')
+            return mode === 'select'
+          },
+          stop: function () {
+            if (mode !== 'idle') setMode('idle')
+          },
+          clear: function () {
+            clearAnnotations()
+            setMode('idle')
+          },
+        }
+      } catch (error) {
+        /* page may reject globals */
+      }
       return { ok: true, injected: true }
     }
 
@@ -2607,6 +2645,7 @@ window.__ModuleLoader__.load({
         'display:none;position:fixed;top:46px;right:10px;z-index:2147483647;background:rgba(15,22,36,.94);color:#dce8ff;border:1px solid rgba(140,170,255,.4);border-radius:8px;padding:6px 10px;font:11.5px "Segoe UI","Microsoft YaHei UI",sans-serif;box-shadow:0 10px 28px -14px rgba(0,0,0,.9);max-width:300px;'
       root.appendChild(pill)
       root.appendChild(toast)
+      if (hideButton) toolbar.style.display = 'none'
       document.documentElement.appendChild(host)
       return { ok: true, injected: true }
     }
@@ -2677,6 +2716,7 @@ window.__ModuleLoader__.load({
         },
         panel: {
           registered: panelState.registered,
+          menuRegistered: Boolean(panelState.menuRegistered),
           state: panelState.state,
           takeover: panelState.takeover,
           steps: panelState.steps.length,
@@ -3191,6 +3231,38 @@ window.__ModuleLoader__.load({
      * Bridge loop
      * ------------------------------------------------------------------ */
 
+    async function startBrowserPick() {
+      var target = findBestWebview(null)
+      if (!target) {
+        setPanelState({ state: 'failed', message: '没有可用的 Browser 页面' })
+        return false
+      }
+      try {
+        await ensureFloatingButton()
+        var probe = '(function(){var api=window.__dshBrowserUseAnnotator;if(!api||typeof api.start!=="function")return false;return api.start()!==false})()'
+        var started = await executeInPage(target, probe, 3000)
+        if (!started) {
+          var hideButton = Boolean(
+            bridgeInfo && bridgeInfo.features && bridgeInfo.features.floatingPickButton === false,
+          )
+          await executeInPage(
+            target,
+            '(' + floatingAnnotator.toString() + ')(' + JSON.stringify({ hideButton: hideButton }) + ')',
+            5000,
+          )
+          started = await executeInPage(target, probe, 3000)
+        }
+        if (started) {
+          setPanelState({ state: 'observing', message: '选取元素' })
+          return true
+        }
+      } catch (error) {
+        /* fall through */
+      }
+      setPanelState({ state: 'failed', message: '无法进入元素选取模式' })
+      return false
+    }
+
     function createBridgeLoop(ctx) {
       var controller = new AbortController()
       var disposed = false
@@ -3398,6 +3470,7 @@ window.__ModuleLoader__.load({
 
               var disposeType
               var disposeSlot
+              var disposeMenu = null
               try {
                 disposeType = scope.sidebarRightTabs.register({
                   id: PANEL_ID,
@@ -3411,6 +3484,37 @@ window.__ModuleLoader__.load({
                   { name: 'sidebar.right.pane.tab', key: PANEL_ID },
                   BrowserUsePanel,
                 )
+                try {
+                  function BrowserPickMenuItem(props) {
+                    if (!props || !props.tab || props.tab.kind !== 'browser') return null
+                    return React.createElement(
+                      'button',
+                      {
+                        type: 'button',
+                        role: 'menuitem',
+                        className: 'bu8f3a2c71_menu_item',
+                        onClick: function (event) {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          try {
+                            if (typeof props.dismiss === 'function') props.dismiss()
+                          } catch (error) {
+                            /* ignore */
+                          }
+                          void startBrowserPick()
+                        },
+                      },
+                      '⌖ 选取元素',
+                    )
+                  }
+                  disposeMenu = scope.slots.register(
+                    { name: 'sidebar.right.tab.menu.item', id: 'browser-use-pick' },
+                    BrowserPickMenuItem,
+                  )
+                  setPanelState({ menuRegistered: true })
+                } catch (error) {
+                  disposeMenu = null
+                }
               } catch (error) {
                 setPanelState({
                   registered: false,
@@ -3420,7 +3524,12 @@ window.__ModuleLoader__.load({
               }
               setPanelState({ registered: true })
               return function () {
-                setPanelState({ registered: false })
+                setPanelState({ registered: false, menuRegistered: false })
+                try {
+                  if (disposeMenu) disposeMenu()
+                } catch (error) {
+                  /* ignore */
+                }
                 try {
                   disposeSlot()
                 } catch (error) {

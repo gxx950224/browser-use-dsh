@@ -16,7 +16,7 @@ test('defaults: desktop bridge defaults are stable', () => {
   assert.equal(config.annotationScreenshot, 'viewport')
   assert.equal(config.cdpPort, 9222)
   assert.equal(config.visualFeedback, true)
-  assert.equal(config.floatingPickButton, true)
+  assert.equal(config.floatingPickButton, false)
   assert.deepEqual(config.trustedOrigins, [])
   assert.deepEqual(config.allowedOrigins, ['dsh-app://app'])
 })

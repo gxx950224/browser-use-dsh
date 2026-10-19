@@ -5,6 +5,9 @@ The plugin targets DSH Desktop and is installed with `plugin_manager install_bun
 
 ## 0.9.8 — 2026-10-19
 
+- Browser tab menu now has a **「⌖ 选取元素」** item (`sidebar.right.tab.menu.item`), so
+  annotation mode can start without covering page content. The floating top-right button is
+  off by default (`floatingPickButton: false`); enable it only if you prefer the page overlay.
 - Annotation batches now attach a viewport screenshot to the chat draft before the text is
   inserted (`annotationScreenshot: "viewport"`), using native `capturePage()` + composer paste.
   Set `annotationScreenshot: "off"` to keep text-only annotations.

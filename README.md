@@ -65,9 +65,11 @@ plugin_manager(action:"install_bundle", target:"@gxx-labs/browser-use-dsh")
 
 ## 圈元素，给 Agent 留言
 
-网页右上角有一个 **「⌖ 选取元素」** 按钮：
+推荐用 **Browser 标签菜单**：点击右侧 Browser 标签的 **⋯** 菜单 → **「⌖ 选取元素」**。这样按钮不会遮挡网页内容。
 
-1. 点击它，进入选取模式；
+备用：把 `floatingPickButton` 设为 `true` 时，网页右上角也会出现一个浮动按钮（默认关闭）。
+
+1. 点击「⌖ 选取元素」，进入选取模式；
 2. 鼠标移到元素上会高亮，点击锁定；
 3. 在弹出框里写评论，例如：
    - “这个按钮点不动，帮我看看”
@@ -136,7 +138,7 @@ browser_use_panel
 | `approvalPolicy` | `sensitive` | 敏感动作是否询问：`sensitive` / `all` / `off` |
 | `originApproval` | `ask` | 新网站首次访问是否询问：`ask` / `off` |
 | `annotationSendMode` | `insert` | 批注只插入草稿；改成 `submit` 则自动发送 |
-| `floatingPickButton` | `true` | 是否显示右上角「⌖ 选取元素」 |
+| `floatingPickButton` | `false` | 是否显示页面右上角浮动「⌖ 选取元素」；默认关闭，推荐用 Browser 标签菜单里的「⌖ 选取元素」避免遮挡页面 |
 | `visualFeedback` | `true` | 是否显示 Agent 光标/高亮/波纹 |
 | `annotationScreenshot` | `viewport` | 批注发送时自动附带一张当前视口截图；`off` 关闭 |
 | `cdpPort` | `9222` | 截图首选端口；被占用会自动尝试 9223/9333 等 |
