@@ -3,6 +3,16 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.9 — 2026-10-19
+
+- Added `browser_use_find`: locate visible elements by query/label/placeholder/role/selector and
+  return compact matches with selectors, labels and boxes.
+- Added `browser_use_extract`: bounded text/table/list/form extraction by CSS selector.
+- Prompt now requires page tasks to start in the browser, prefer find/extract over whole-page
+  AX/HTML reads, and explicitly forbids downloading site JS, scanning tokens, or bypassing the UI
+  through business APIs.
+- The toolbar pick icon uses the official 28px icon-button chrome and toggles selection mode.
+
 ## 0.9.8 — 2026-10-19
 
 - Adds a best-effort **选取元素** icon in the Sidebar panel's top-right button group

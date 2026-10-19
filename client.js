@@ -775,6 +775,304 @@ window.__ModuleLoader__.load({
      * Page-side readers (self-contained; stringified into the page)
      * ------------------------------------------------------------------ */
 
+    function findRunner(args) {
+      function normalize(value, limit) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, limit || 200)
+      }
+      function cssEscape(value) {
+        if (window.CSS && window.CSS.escape) return window.CSS.escape(String(value))
+        return String(value).replace(/([^\w-])/g, '\\$1')
+      }
+      function isVisible(element) {
+        try {
+          var style = window.getComputedStyle(element)
+          if (!style || style.display === 'none' || style.visibility === 'hidden') return false
+          var rect = element.getBoundingClientRect()
+          return rect.width >= 1 && rect.height >= 1
+        } catch (error) {
+          return false
+        }
+      }
+      function roleOf(element) {
+        var explicit = element.getAttribute('role')
+        if (explicit) return explicit
+        var tag = element.tagName.toLowerCase()
+        if (tag === 'input') {
+          var type = String(element.type || 'text').toLowerCase()
+          if (type === 'checkbox' || type === 'radio') return type
+          if (type === 'button' || type === 'submit' || type === 'reset') return 'button'
+          return 'textbox'
+        }
+        if (tag === 'button') return 'button'
+        if (tag === 'a') return 'link'
+        if (tag === 'select') return 'combobox'
+        if (tag === 'textarea') return 'textbox'
+        return 'generic'
+      }
+      function textOf(element) {
+        try {
+          return normalize(element.innerText || element.textContent || '')
+        } catch (error) {
+          return ''
+        }
+      }
+      function labelOf(element) {
+        try {
+          if (element.id) {
+            var byFor = document.querySelector('label[for="' + cssEscape(element.id) + '"]')
+            if (byFor) return textOf(byFor)
+          }
+          var holder = element.closest('label, .el-form-item, .form-item, .field, .ant-form-item')
+          if (holder) {
+            var label = holder.querySelector('label, .el-form-item__label, .form-label, .ant-form-item-label')
+            if (label && textOf(label)) return textOf(label)
+          }
+          var previous = element.previousElementSibling
+          while (previous) {
+            if (/^(LABEL|SPAN|DIV)$/.test(previous.tagName) && textOf(previous)) return textOf(previous)
+            previous = previous.previousElementSibling
+          }
+        } catch (error) {
+          /* ignore */
+        }
+        return ''
+      }
+      function selectorOf(element) {
+        try {
+          if (element.id) return '#' + cssEscape(element.id)
+          var parts = []
+          var node = element
+          var depth = 0
+          while (node && node.nodeType === 1 && node !== document.body && depth < 6) {
+            var testid = node.getAttribute('data-testid')
+            if (testid) {
+              parts.unshift('[data-testid="' + String(testid).replace(/"/g, '\\"') + '"]')
+              break
+            }
+            var name = node.getAttribute('name')
+            if (name && /^(INPUT|SELECT|TEXTAREA|FORM)$/.test(node.tagName)) {
+              parts.unshift(node.tagName.toLowerCase() + '[name="' + String(name).replace(/"/g, '\\"') + '"]')
+              break
+            }
+            var part = node.tagName.toLowerCase()
+            var parent = node.parentElement
+            if (parent) {
+              var same = 0
+              var index = 0
+              for (var i = 0; i < parent.children.length; i += 1) {
+                if (parent.children[i].tagName === node.tagName) {
+                  same += 1
+                  if (parent.children[i] === node) index = same
+                }
+              }
+              if (same > 1) part += ':nth-of-type(' + index + ')'
+            }
+            parts.unshift(part)
+            node = parent
+            depth += 1
+          }
+          return parts.join(' > ')
+        } catch (error) {
+          return ''
+        }
+      }
+
+      var query = normalize(args && (args.query || args.text || args.placeholder || args.label), 160)
+      var selector = args && args.selector ? String(args.selector) : ''
+      var limit = Math.max(1, Math.min(50, Number(args && args.limit) || 10))
+      var roleFilter = args && args.role ? String(args.role) : ''
+      var placeholderFilter = args && args.placeholder ? normalize(args.placeholder, 120).toLowerCase() : ''
+      var labelFilter = args && args.label ? normalize(args.label, 120).toLowerCase() : ''
+      var elements = []
+      if (selector) {
+        try {
+          elements = Array.from(document.querySelectorAll(selector))
+        } catch (error) {
+          return { ok: false, error: { code: 'E_BAD_REQUEST', message: 'invalid selector' } }
+        }
+      } else {
+        elements = Array.from(
+          document.querySelectorAll(
+            'input,textarea,select,button,a,label,[role="button"],[role="textbox"],[role="combobox"],[role="menuitem"],[role="option"],li,td,span,div',
+          ),
+        )
+      }
+      var scored = []
+      for (var index = 0; index < elements.length; index += 1) {
+        var element = elements[index]
+        if (!element || !isVisible(element)) continue
+        var role = roleOf(element)
+        if (roleFilter && role !== roleFilter) continue
+        var placeholder = normalize(element.getAttribute('placeholder'), 120)
+        if (placeholderFilter && placeholder.toLowerCase().indexOf(placeholderFilter) < 0) continue
+        var label = labelOf(element)
+        if (labelFilter && label.toLowerCase().indexOf(labelFilter) < 0) continue
+        var text = textOf(element)
+        var haystack = [placeholder, label, element.getAttribute('aria-label') || '', element.getAttribute('title') || '', text]
+          .join(' ')
+          .toLowerCase()
+        var wanted = query.toLowerCase()
+        if (wanted && haystack.indexOf(wanted) < 0) continue
+        var score = 0
+        if (wanted) {
+          if (placeholder.toLowerCase() === wanted) score += 1200
+          if (label.toLowerCase() === wanted) score += 1100
+          if (text.toLowerCase() === wanted) score += 900
+          if (placeholder.toLowerCase().indexOf(wanted) >= 0) score += 260
+          if (label.toLowerCase().indexOf(wanted) >= 0) score += 240
+        }
+        if (role !== 'generic') score += 450
+        if (role === 'generic' && element.querySelector('input,select,textarea,button,a,[role="button"]')) {
+          score -= 1400
+        }
+        if (text.length > 120) score -= Math.min(350, Math.floor(text.length / 8))
+        var depth = 0
+        var cursor = element
+        while (cursor && cursor !== document.body) {
+          depth += 1
+          cursor = cursor.parentElement
+        }
+        score += depth * 4
+        var rect = element.getBoundingClientRect()
+        scored.push({
+          score: score,
+          tag: element.tagName.toLowerCase(),
+          role: role,
+          name: normalize(
+            element.getAttribute('aria-label') || element.getAttribute('title') || label || placeholder || text,
+            160,
+          ),
+          label: label,
+          placeholder: placeholder,
+          selector: selectorOf(element),
+          ref: element.getAttribute('data-dsh-bu-ref') || '',
+          interactive: role !== 'generic',
+          box: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
+        })
+      }
+      scored.sort(function (a, b) {
+        return b.score - a.score
+      })
+      var seen = {}
+      var matches = []
+      for (var j = 0; j < scored.length && matches.length < limit; j += 1) {
+        var key = scored[j].selector || scored[j].tag + ':' + scored[j].name + ':' + scored[j].box.x + ':' + scored[j].box.y
+        if (seen[key]) continue
+        seen[key] = true
+        matches.push(scored[j])
+      }
+      return { ok: true, url: location.href, title: document.title, count: scored.length, matches: matches }
+    }
+
+    function extractRunner(args) {
+      function normalize(value, limit) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, limit || 400)
+      }
+      var selector = args && args.selector ? String(args.selector) : ''
+      if (!selector) return { ok: false, error: { code: 'E_BAD_REQUEST', message: 'selector is required' } }
+      var kind = args && ['text', 'table', 'list', 'form'].indexOf(args.kind) >= 0 ? args.kind : 'text'
+      var limit = Math.max(1, Math.min(100, Number(args && args.limit) || 20))
+      var maxChars = Math.max(200, Math.min(30000, Number(args && args.maxChars) || 8000))
+      var elements
+      try {
+        elements = Array.from(document.querySelectorAll(selector))
+      } catch (error) {
+        return { ok: false, error: { code: 'E_BAD_REQUEST', message: 'invalid selector' } }
+      }
+      if (elements.length === 0) {
+        return { ok: true, url: location.href, title: document.title, count: 0, kind: kind, rows: [], text: '' }
+      }
+      if (kind === 'table') {
+        var table = elements[0].closest('table') || document.querySelector('table')
+        var headerRoot =
+          elements[0].closest('.el-table, .ant-table') ||
+          table ||
+          elements[0].closest('[class*="table"]')
+        var headers = table
+          ? Array.from(table.querySelectorAll('thead th, thead td')).map(function (cell) {
+              return normalize(cell.innerText || cell.textContent, 120)
+            })
+          : []
+        if (headers.length === 0 && headerRoot) {
+          headers = Array.from(
+            headerRoot.querySelectorAll('thead th, .el-table__header th, .ant-table-thead th, th'),
+          ).map(function (cell) {
+            return normalize(cell.innerText || cell.textContent, 120)
+          })
+        }
+        var rowElements = elements.filter(function (element) {
+          return element.tagName === 'TR'
+        })
+        if (rowElements.length === 0 && elements[0].tagName === 'TABLE') {
+          rowElements = Array.from(elements[0].querySelectorAll('tbody tr'))
+        }
+        if (rowElements.length === 0) rowElements = Array.from(elements[0].querySelectorAll('tr'))
+        var rows = rowElements.slice(0, limit).map(function (row) {
+          return Array.from(row.querySelectorAll('td,th')).map(function (cell) {
+            return normalize(cell.innerText || cell.textContent, 300)
+          })
+        })
+        return {
+          ok: true,
+          url: location.href,
+          title: document.title,
+          kind: 'table',
+          count: rowElements.length,
+          headers: headers,
+          rows: rows,
+          truncated: rowElements.length > rows.length,
+        }
+      }
+      if (kind === 'list' || kind === 'form') {
+        var items = elements.slice(0, limit).map(function (element) {
+          return {
+            tag: element.tagName.toLowerCase(),
+            text: normalize(element.innerText || element.textContent, 300),
+            value: typeof element.value === 'string' ? element.value.slice(0, 200) : undefined,
+            placeholder: element.getAttribute('placeholder') || undefined,
+            label:
+              element.closest('label, .el-form-item, .form-item')
+                ? normalize(
+                    (element.closest('label, .el-form-item, .form-item').querySelector('label, .el-form-item__label') || {})
+                      .innerText || '',
+                    120,
+                  )
+                : undefined,
+          }
+        })
+        return {
+          ok: true,
+          url: location.href,
+          title: document.title,
+          kind: kind,
+          count: elements.length,
+          items: items,
+          truncated: elements.length > items.length,
+        }
+      }
+      var text = elements
+        .map(function (element) {
+          return normalize(element.innerText || element.textContent, maxChars)
+        })
+        .join('\n')
+        .slice(0, maxChars)
+      return {
+        ok: true,
+        url: location.href,
+        title: document.title,
+        kind: 'text',
+        count: elements.length,
+        text: text,
+        truncated: text.length >= maxChars,
+      }
+    }
+
     function axBuilder(options) {
       var maxNodes = (options && options.maxNodes) || 200
       var nodes = []
@@ -3125,6 +3423,27 @@ window.__ModuleLoader__.load({
           setPanelState({ state: readResult.ok === false ? 'failed' : 'idle', message: readResult.ok === false ? '读取失败' : '就绪' })
           if (readResult.ok !== false) pushPanelStep('读取页面 · ' + String((args && args.mode) || 'ax'), 'done')
           return success(readResult)
+        } catch (error) {
+          setPanelState({ state: 'failed', message: cleanText(error && error.message) })
+          return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))
+        }
+      }
+      if (op === 'find' || op === 'extract') {
+        setPanelState({ state: 'observing', message: op === 'find' ? '查找元素' : '提取内容' })
+        try {
+          var queryTarget = findBestWebview(null)
+          if (!queryTarget) return failure('E_NO_WEBVIEW', 'no Sidebar browser webview found', 'open the Browser tab first')
+          var runner = op === 'find' ? findRunner : extractRunner
+          var queryResult = await executeInPage(
+            queryTarget,
+            '(' + runner.toString() + ')(' + JSON.stringify(args || {}) + ')',
+            15000,
+          )
+          setPanelState({ state: queryResult && queryResult.ok === false ? 'failed' : 'idle', message: '就绪' })
+          if (queryResult && queryResult.ok !== false) {
+            pushPanelStep((op === 'find' ? '查找元素' : '提取内容') + ' · ' + String((args && (args.query || args.selector)) || ''), 'done')
+          }
+          return success(queryResult)
         } catch (error) {
           setPanelState({ state: 'failed', message: cleanText(error && error.message) })
           return failure(error && error.code ? error.code : 'E_CLIENT', cleanText(error && error.message))

@@ -119,6 +119,8 @@ browser_use_panel
 ## Agent 能做什么
 
 - 打开网页、切换页面
+- 按文本/标签/占位符定位元素（`browser_use_find`）
+- 按 CSS selector 定点提取文本、表格、列表或表单（`browser_use_extract`）
 - 读取页面结构、文字和链接
 - 点击、填写、输入、按键、滚动、悬停
 - 下拉选择、勾选/取消

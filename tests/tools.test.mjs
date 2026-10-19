@@ -47,6 +47,8 @@ function fakeBridge(overrides = {}) {
     open: { ok: true, url: 'https://example.com/', title: 'Example', generation: 'g-1', reused: false },
     resolve: { ok: true, url: 'https://example.com/', title: 'Example', target: { ref: 'e1', tag: 'a', role: 'link', name: 'Learn more' } },
     act: { ok: true, action: 'click', url: 'https://example.com/', title: 'Example', generation: 'g-1' },
+    find: { ok: true, count: 1, matches: [{ tag: 'input', role: 'textbox', name: '开发人员' }] },
+    extract: { ok: true, kind: 'table', count: 1, headers: ['开发人员'], rows: [['郭晓曦']] },
     verify: { ok: true, passed: true, checks: [{ name: 'title', expected: 'Example', actual: 'Example', pass: true }] },
     openPanel: { ok: true },
     uiState: { ok: true },
@@ -81,6 +83,8 @@ test('registers the C4 tool set', () => {
   const { ctx, dispose } = setup()
   assert.deepEqual([...ctx.definitions.keys()].sort(), [
     'browser_use_act',
+    'browser_use_extract',
+    'browser_use_find',
     'browser_use_open',
     'browser_use_panel',
     'browser_use_read',
@@ -90,6 +94,39 @@ test('registers the C4 tool set', () => {
   ])
   dispose()
   assert.equal(ctx.definitions.size, 0)
+})
+
+test('find requires a query and dispatches to the Client', async () => {
+  const { ctx, bridge } = setup()
+  const missing = await ctx.definitions.get('browser_use_find').execute({}, {})
+  assert.equal(missing.ok, false)
+  assert.equal(missing.code, 'E_BAD_REQUEST')
+
+  const value = await ctx.definitions
+    .get('browser_use_find')
+    .execute({ query: '开发人员', limit: 5 }, {})
+  assert.equal(value.ok, true)
+  assert.deepEqual(
+    bridge.calls.filter((call) => call.op === 'find').map((call) => call.args),
+    [{ query: '开发人员', limit: 5 }],
+  )
+})
+
+test('extract requires a selector and dispatches to the Client', async () => {
+  const { ctx, bridge } = setup()
+  const missing = await ctx.definitions.get('browser_use_extract').execute({}, {})
+  assert.equal(missing.ok, false)
+  assert.equal(missing.code, 'E_BAD_REQUEST')
+
+  const value = await ctx.definitions
+    .get('browser_use_extract')
+    .execute({ selector: '.el-table__body', kind: 'table', limit: 20 }, {})
+  assert.equal(value.ok, true)
+  assert.equal(value.kind, 'table')
+  assert.deepEqual(
+    bridge.calls.filter((call) => call.op === 'extract').map((call) => call.args),
+    [{ selector: '.el-table__body', kind: 'table', limit: 20, maxChars: 8000 }],
+  )
 })
 
 test('status advertises act/verify/screenshot/visual capabilities', async () => {
