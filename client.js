@@ -887,15 +887,25 @@ window.__ModuleLoader__.load({
       var placeholderFilter = args && args.placeholder ? normalize(args.placeholder, 120).toLowerCase() : ''
       var labelFilter = args && args.label ? normalize(args.label, 120).toLowerCase() : ''
       var elements = []
+      var scopeSelector = args && args.scope ? String(args.scope) : ''
+      var root = document
+      if (scopeSelector) {
+        try {
+          root = document.querySelector(scopeSelector)
+        } catch (error) {
+          return { ok: false, error: { code: 'E_BAD_REQUEST', message: 'invalid scope selector' } }
+        }
+        if (!root) return { ok: false, error: { code: 'E_SCOPE_NOT_FOUND', message: 'scope not found: ' + scopeSelector } }
+      }
       if (selector) {
         try {
-          elements = Array.from(document.querySelectorAll(selector))
+          elements = Array.from(root.querySelectorAll(selector))
         } catch (error) {
           return { ok: false, error: { code: 'E_BAD_REQUEST', message: 'invalid selector' } }
         }
       } else {
         elements = Array.from(
-          document.querySelectorAll(
+          root.querySelectorAll(
             'input,textarea,select,button,a,label,[role="button"],[role="textbox"],[role="combobox"],[role="menuitem"],[role="option"],li,td,span,div',
           ),
         )
@@ -980,8 +990,18 @@ window.__ModuleLoader__.load({
       var limit = Math.max(1, Math.min(100, Number(args && args.limit) || 20))
       var maxChars = Math.max(200, Math.min(30000, Number(args && args.maxChars) || 8000))
       var elements
+      var scopeSelector = args && args.scope ? String(args.scope) : ''
+      var root = document
+      if (scopeSelector) {
+        try {
+          root = document.querySelector(scopeSelector)
+        } catch (error) {
+          return { ok: false, error: { code: 'E_BAD_REQUEST', message: 'invalid scope selector' } }
+        }
+        if (!root) return { ok: false, error: { code: 'E_SCOPE_NOT_FOUND', message: 'scope not found: ' + scopeSelector } }
+      }
       try {
-        elements = Array.from(document.querySelectorAll(selector))
+        elements = Array.from(root.querySelectorAll(selector))
       } catch (error) {
         return { ok: false, error: { code: 'E_BAD_REQUEST', message: 'invalid selector' } }
       }
@@ -1742,6 +1762,8 @@ window.__ModuleLoader__.load({
       var action = String((args && args.action) || '')
       var target = args && args.target
       var resultSelectedOption = ''
+      var resultStrategy = ''
+      var resultConfirmed = false
       var element = findTarget(target)
       var needsElement = action !== 'waitFor' && action !== 'press'
       if (needsElement && !element) {
@@ -1853,17 +1875,29 @@ window.__ModuleLoader__.load({
             error: { code: 'E_BAD_REQUEST', message: 'optionText is required for selectOption' },
           }
         }
+        var scopeSelector = String(args.scope || '')
+        function selectScope() {
+          if (!scopeSelector) return null
+          try {
+            return document.querySelector(scopeSelector)
+          } catch (error) {
+            return null
+          }
+        }
+        function visibleInScope(selector) {
+          var root = selectScope() || document
+          return Array.from(root.querySelectorAll(selector)).filter(isVisible)
+        }
+        function visibleOptionsInScope() {
+          return visibleInScope(
+            '.el-select-dropdown__item, .ant-select-item-option, [role="option"], .el-dropdown-menu__item',
+          )
+        }
         if (element.tagName === 'SELECT') {
           setNativeValue(element, desiredOption)
+          resultStrategy = 'native'
         } else {
-          function visibleOptions() {
-            return Array.from(
-              document.querySelectorAll(
-                '.el-select-dropdown__item, .ant-select-item-option, [role="option"], .el-dropdown-menu__item',
-              ),
-            ).filter(isVisible)
-          }
-          var options = visibleOptions()
+          var options = visibleOptionsInScope()
           if (options.length === 0) {
             var opener = element.closest('.el-select, .ant-select, [role="combobox"]') || element
             try {
@@ -1876,7 +1910,7 @@ window.__ModuleLoader__.load({
             } catch (error) {
               /* ignore */
             }
-            if (visibleOptions().length === 0) {
+            if (visibleOptionsInScope().length === 0) {
               try {
                 opener.click()
               } catch (error) {
@@ -1886,7 +1920,7 @@ window.__ModuleLoader__.load({
             await new Promise(function (resolve) {
               window.setTimeout(resolve, 160)
             })
-            options = visibleOptions()
+            options = visibleOptionsInScope()
           }
           var option = null
           for (var oi = 0; oi < options.length; oi += 1) {
@@ -1903,28 +1937,96 @@ window.__ModuleLoader__.load({
               }
             }
           }
-          if (!option) {
-            return {
-              ok: false,
-              error: {
-                code: 'E_OPTION_NOT_FOUND',
-                message: 'option not found: ' + desiredOption,
-                hint: 'available: ' + options.map(function (node) {
+          if (option) {
+            try {
+              option.click()
+            } catch (error) {
+              fire(option, 'click', { button: 0 })
+            }
+            await new Promise(function (resolve) {
+              window.setTimeout(resolve, 80)
+            })
+            resultSelectedOption = desiredOption
+            resultStrategy = 'dropdown'
+          } else {
+            var dialogs = Array.from(
+              document.querySelectorAll('[role="dialog"], .el-dialog, .ant-modal'),
+            ).filter(isVisible)
+            var scopedRoot = selectScope()
+            var dialog =
+              scopedRoot && isVisible(scopedRoot)
+                ? scopedRoot
+                : dialogs[dialogs.length - 1] || document
+            var rows = Array.from(
+              dialog.querySelectorAll('tr, li, [role="row"], [role="option"]'),
+            ).filter(isVisible)
+            var row = null
+            for (var ri = 0; ri < rows.length; ri += 1) {
+              if (normalize(rows[ri].innerText || rows[ri].textContent) === desiredOption) {
+                row = rows[ri]
+                break
+              }
+            }
+            if (!row) {
+              for (var rci = 0; rci < rows.length; rci += 1) {
+                var rowText = normalize(rows[rci].innerText || rows[rci].textContent)
+                if (rowText && rowText.indexOf(desiredOption) >= 0 && rowText.length <= desiredOption.length + 120) {
+                  row = rows[rci]
+                  break
+                }
+              }
+            }
+            if (!row) {
+              var available = options
+                .map(function (node) {
                   return normalize(node.innerText || node.textContent)
-                }).join(' | '),
-              },
+                })
+                .concat(
+                  rows.slice(0, 20).map(function (node) {
+                    return normalize(node.innerText || node.textContent, 120)
+                  }),
+                )
+              return {
+                ok: false,
+                error: {
+                  code: 'E_OPTION_NOT_FOUND',
+                  message: 'option not found: ' + desiredOption,
+                  hint: 'available: ' + available.filter(Boolean).join(' | '),
+                },
+              }
+            }
+            try {
+              row.click()
+            } catch (error) {
+              fire(row, 'click', { button: 0 })
+            }
+            await new Promise(function (resolve) {
+              window.setTimeout(resolve, 100)
+            })
+            resultSelectedOption = desiredOption
+            resultStrategy = 'dialog-row'
+            if (args.confirm) {
+              var buttons = Array.from(
+                dialog.querySelectorAll('button, [role="button"]'),
+              ).filter(isVisible)
+              for (var bi = 0; bi < buttons.length; bi += 1) {
+                var buttonText = normalize(buttons[bi].innerText || buttons[bi].textContent).replace(/\s+/g, '')
+                if (/^(确认|确定|保存|ok|okay)$/i.test(buttonText)) {
+                  try {
+                    buttons[bi].click()
+                  } catch (error) {
+                    fire(buttons[bi], 'click', { button: 0 })
+                  }
+                  resultConfirmed = true
+                  await new Promise(function (resolve) {
+                    window.setTimeout(resolve, 100)
+                  })
+                  break
+                }
+              }
             }
           }
-          try {
-            option.click()
-          } catch (error) {
-            fire(option, 'click', { button: 0 })
-          }
-          await new Promise(function (resolve) {
-            window.setTimeout(resolve, 80)
-          })
         }
-        resultSelectedOption = desiredOption
       } else if (action === 'check' || action === 'uncheck') {
         var desired = action === 'check'
         if (typeof element.checked === 'boolean') {
@@ -1948,6 +2050,8 @@ window.__ModuleLoader__.load({
         title: document.title,
       }
       if (resultSelectedOption) result.selectedOption = resultSelectedOption
+      if (resultStrategy) result.strategy = resultStrategy
+      if (resultStrategy === 'dialog-row') result.confirmed = Boolean(resultConfirmed)
       if (element) result.target = metaOf(element)
       if (action === 'scroll') {
         result.scroll = { x: window.scrollX, y: window.scrollY }
@@ -3472,6 +3576,8 @@ window.__ModuleLoader__.load({
           target: args.target || null,
           value: args.value,
           optionText: args.optionText,
+          scope: args.scope,
+          confirm: Boolean(args.confirm),
           key: args.key,
           dx: args.dx,
           dy: args.dy,

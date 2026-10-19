@@ -3,6 +3,17 @@
 All notable changes to `@gxx-labs/browser-use-dsh` are recorded here.
 The plugin targets DSH Desktop and is installed with `plugin_manager install_bundle`.
 
+## 0.9.10 — 2026-10-19
+
+- Made `selectOption` generic: native `<select>`, Element Plus/Ant Design dropdown options, and
+  visible dialog/list/table rows. Optional `scope` limits the search; `confirm: true` clicks the
+  dialog's confirm button. Results report `strategy` (`native`/`dropdown`/`dialog-row`).
+- Added `scope` to `browser_use_find`/`browser_use_extract` for visible dialogs, menus and tables.
+- All browser action/find/extract results are JSON-safe, eliminating spurious
+  `invalid output: value is not lossless JSON` failures.
+- Prompt now describes dropdown and picker-dialog selection generically; no page-specific URL,
+  menu path or business selector is hardcoded.
+
 ## 0.9.9 — 2026-10-19
 
 - Added `browser_use_find`: locate visible elements by query/label/placeholder/role/selector and
