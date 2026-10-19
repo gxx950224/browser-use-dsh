@@ -5,6 +5,13 @@ The plugin targets DSH Desktop and is installed with `plugin_manager install_bun
 
 ## 0.9.8 — 2026-10-19
 
+- Adds a best-effort **选取元素** icon in the Sidebar panel's top-right button group
+  (Codex-style brackets + cursor), with the Browser tab menu as the stable fallback. The
+  floating page button remains off by default.
+- Annotation screenshots are now captured **before** the numbered markers are cleared, and the
+  bottom comment bar/toolbar is hidden for the capture, so the image shows the annotated page.
+- Annotation text defaults to `annotationDetail: "compact"`: one line per comment plus the
+  element's readable label, instead of selectors/positions/roles. Use `"full"` for machine detail.
 - Browser tab menu now has a **「⌖ 选取元素」** item (`sidebar.right.tab.menu.item`), so
   annotation mode can start without covering page content. The floating top-right button is
   off by default (`floatingPickButton: false`); enable it only if you prefer the page overlay.

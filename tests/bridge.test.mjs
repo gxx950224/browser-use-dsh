@@ -42,8 +42,10 @@ test('config endpoint is origin-gated and returns the token', async () => {
     assert.equal(data.token, bridge.token)
     assert.equal(data.port, bridge.port)
     assert.equal(data.features.floatingPickButton, false)
+    assert.equal(data.features.toolbarPickButton, true)
     assert.equal(data.features.annotationSendMode, 'insert')
     assert.equal(data.features.annotationScreenshot, 'viewport')
+    assert.equal(data.features.annotationDetail, 'compact')
 
     const bad = await fetch(`http://127.0.0.1:${bridge.port}/v1/config`, {
       headers: { Origin: 'https://evil.example' },

@@ -147,6 +147,8 @@ window.__ModuleLoader__.load({
       '.bu8f3a2c71_foot{margin-top:auto;font-size:var(--dsw-font-xxs);color:var(--dsw-alias-label-tertiary)}' +
       '.bu8f3a2c71_menu_item{all:unset;box-sizing:border-box;display:block;width:100%;padding:7px 12px;border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-primary);font:inherit;font-size:var(--dsw-font-xxs);text-align:left;cursor:pointer}' +
       '.bu8f3a2c71_menu_item:hover{background:var(--dsw-alias-interactive-bg-hover)}' +
+      '.bu8f3a2c71_toolbar_pick{all:unset;box-sizing:border-box;width:24px;height:24px;border-radius:var(--dsw-radius-sm);display:inline-flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-secondary);cursor:pointer}' +
+      '.bu8f3a2c71_toolbar_pick:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}' +
       '@keyframes bu8f3a2c71_breathe{0%,100%{opacity:.45}50%{opacity:1}}' +
       '@keyframes bu8f3a2c71_pulse{0%,100%{opacity:.5}50%{opacity:1}}' +
       '@media (prefers-reduced-motion: reduce){.bu8f3a2c71_root::after{animation:none!important}}'
@@ -510,23 +512,34 @@ window.__ModuleLoader__.load({
         var features = bridgeInfo.features || {}
         if (features.floatingPickButton === false) {
           setPanelState({ pickButton: { enabled: false } })
+          var hiddenTarget = findBestWebview(null)
+          if (!hiddenTarget) return
           try {
-            var currentTarget = findBestWebview(null)
-            if (currentTarget) {
-              await executeInPage(
-                currentTarget,
-                '(function(){var host=document.getElementById("dsh-browser-use-annotator");if(host&&host.shadowRoot){var bar=host.shadowRoot.querySelector(".toolbar");if(bar)bar.style.display="none"}var api=window.__dshBrowserUseAnnotator;if(api&&typeof api.clear==="function")api.clear();var old=document.getElementById("dsh-browser-use-pick-host");if(old&&old.parentNode)old.parentNode.removeChild(old);return true})()',
-                3000,
-              )
-            }
+            await executeInPage(
+              hiddenTarget,
+              '(' +
+                floatingAnnotator.toString() +
+                ')(' +
+                JSON.stringify({ hideButton: true, detail: features.annotationDetail || 'compact' }) +
+                ')',
+              5000,
+            )
           } catch (error) {
-            /* no page to clean up */
+            /* no page to inject into */
           }
           return
         }
         var target = findBestWebview(null)
         if (!target) return
-        var result = await executeInPage(target, '(' + floatingAnnotator.toString() + ')()', 5000)
+        var result = await executeInPage(
+          target,
+          '(' +
+            floatingAnnotator.toString() +
+            ')(' +
+            JSON.stringify({ hideButton: false, detail: features.annotationDetail || 'compact' }) +
+            ')',
+          5000,
+        )
         setPanelState({
           pickButton: {
             enabled: true,
@@ -608,6 +621,11 @@ window.__ModuleLoader__.load({
         annotationAttachmentInfo.imagesBefore = card.querySelectorAll('img[src^="blob:"]').length
       }
       try {
+        await executeInPage(
+          target,
+          '(function(){var a=window.__dshBrowserUseAnnotator;if(a&&a.prepareCapture)a.prepareCapture();return true})()',
+          3000,
+        )
         var image = await target.capturePage()
         var bytes = null
         try {
@@ -731,6 +749,15 @@ window.__ModuleLoader__.load({
         }
         if (!payload || payload.type !== 'browser-use-annotation' || typeof payload.text !== 'string') return
         var status = await deliverAnnotation(payload.text)
+        try {
+          await executeInPage(
+            target,
+            '(function(){var a=window.__dshBrowserUseAnnotator;if(a&&a.clear)a.clear();return true})()',
+            3000,
+          )
+        } catch (error) {
+          /* page may be navigating */
+        }
         await executeInPage(
           target,
           '(' + outboxStatusWriter.toString() + ')(' + JSON.stringify(status) + ')',
@@ -1686,8 +1713,9 @@ window.__ModuleLoader__.load({
     function floatingAnnotator(options) {
       var HOST_ID = 'dsh-browser-use-annotator'
       var LEGACY_ID = 'dsh-browser-use-pick-host'
-      var UI_VERSION = '2026-10-19-1'
+      var UI_VERSION = '2026-10-19-2'
       var hideButton = Boolean(options && options.hideButton)
+      var annotationDetail = options && options.detail === 'full' ? 'full' : 'compact'
       var existing = document.getElementById(HOST_ID)
       if (existing) {
         if (existing.getAttribute('data-dsh-bu-ui-version') === UI_VERSION) {
@@ -1986,25 +2014,40 @@ window.__ModuleLoader__.load({
         var lines = ['[Browser Use 批注 · ' + annotations.length + ' 条]']
         lines.push('页面: ' + location.href)
         annotations.forEach(function (annotation, index) {
-          lines.push('--- 批注 ' + (index + 1) + ' ---')
-          lines.push('评论: ' + annotation.comment)
-          if (annotation.info.context) lines.push('上下文: ' + annotation.info.context)
-          if (annotation.info.selector) lines.push('选择器: ' + annotation.info.selector)
-          lines.push('角色: ' + annotation.info.role)
-          if (annotation.info.name) lines.push('可读名: ' + annotation.info.name)
-          if (annotation.info.text) lines.push('文本: ' + annotation.info.text)
-          lines.push(
-            '位置: x=' +
-              annotation.info.box.x +
-              ' y=' +
-              annotation.info.box.y +
-              ' w=' +
-              annotation.info.box.w +
-              ' h=' +
-              annotation.info.box.h,
-          )
-          if (annotation.info.ref) lines.push('Ref: ' + annotation.info.ref)
-          if (annotation.info.href) lines.push('链接: ' + annotation.info.href)
+          var number = index + 1
+          if (annotationDetail === 'full') {
+            lines.push('--- 批注 ' + number + ' ---')
+            lines.push('评论: ' + annotation.comment)
+            if (annotation.info.context) lines.push('上下文: ' + annotation.info.context)
+            if (annotation.info.selector) lines.push('选择器: ' + annotation.info.selector)
+            lines.push('角色: ' + annotation.info.role)
+            if (annotation.info.name) lines.push('可读名: ' + annotation.info.name)
+            if (annotation.info.text) lines.push('文本: ' + annotation.info.text)
+            lines.push(
+              '位置: x=' +
+                annotation.info.box.x +
+                ' y=' +
+                annotation.info.box.y +
+                ' w=' +
+                annotation.info.box.w +
+                ' h=' +
+                annotation.info.box.h,
+            )
+            if (annotation.info.ref) lines.push('Ref: ' + annotation.info.ref)
+            if (annotation.info.href) lines.push('链接: ' + annotation.info.href)
+            return
+          }
+          lines.push('批注 ' + number + ': ' + annotation.comment)
+          var label =
+            annotation.info.name ||
+            annotation.info.text ||
+            annotation.info.context ||
+            annotation.info.role ||
+            ''
+          if (annotation.info.context && label && label.indexOf(annotation.info.context) < 0) {
+            label += '（' + annotation.info.context + '）'
+          }
+          if (label) lines.push('元素: ' + label)
         })
         return lines.join('\n')
       }
@@ -2148,7 +2191,6 @@ window.__ModuleLoader__.load({
           })
         }
         showToast('已送入聊天框…', 1500)
-        clearAnnotations()
         setMode('idle')
         window.setTimeout(function () {
           var status = statusEl ? statusEl.textContent : ''
@@ -2321,6 +2363,16 @@ window.__ModuleLoader__.load({
           clear: function () {
             clearAnnotations()
             setMode('idle')
+          },
+          prepareCapture: function () {
+            try {
+              pop.style.display = 'none'
+              toolbar.style.display = 'none'
+              bar.style.display = 'none'
+              hover.style.display = 'none'
+            } catch (error) {
+              /* ignore */
+            }
           },
         }
       } catch (error) {
@@ -2696,6 +2748,7 @@ window.__ModuleLoader__.load({
         nativeCapture: webviews.some(function (webview) {
           return typeof webview.capturePage === 'function'
         }),
+        toolbarPickButton: Boolean(document.querySelector('[data-dsh-bu-toolbar-pick]')),
         webviews: items,
         webview: target
           ? {
@@ -3231,11 +3284,85 @@ window.__ModuleLoader__.load({
      * Bridge loop
      * ------------------------------------------------------------------ */
 
+    var toolbarPickObserver = null
+    var toolbarPickTimer = null
+
+    function toolbarPickGlyph() {
+      return (
+        '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">' +
+        '<path d="M5.5 2H3.5A1.5 1.5 0 0 0 2 3.5v2M10.5 2h2A1.5 1.5 0 0 1 14 3.5v2M5.5 14h-2A1.5 1.5 0 0 1 2 12.5v-2M10.5 14h2a1.5 1.5 0 0 0 1.5-1.5v-2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>' +
+        '<path d="M6.6 5.8 11.7 8l-2.2.9-.9 2.2-2-5.3Z" fill="currentColor" stroke="var(--dsw-alias-bg-base)" stroke-width=".6" stroke-linejoin="round"/>' +
+        '</svg>'
+      )
+    }
+
+    function removeToolbarPickButton() {
+      var existing = document.querySelector('[data-dsh-bu-toolbar-pick]')
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing)
+    }
+
+    function ensureToolbarPickButton() {
+      var enabled = !bridgeInfo || !bridgeInfo.features || bridgeInfo.features.toolbarPickButton !== false
+      if (!enabled) {
+        removeToolbarPickButton()
+        return
+      }
+      var anchor = document.querySelector('[data-sidebar-right-panel] button[data-sidebar-right-mode]')
+      if (!anchor || !anchor.parentElement) return
+      var existing = document.querySelector('[data-dsh-bu-toolbar-pick]')
+      if (existing && existing.parentElement === anchor.parentElement) return
+      if (existing) existing.remove()
+      var button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'bu8f3a2c71_toolbar_pick'
+      button.setAttribute('data-dsh-bu-toolbar-pick', 'true')
+      button.setAttribute('aria-label', '选取元素')
+      button.title = '选取元素（给 Agent 圈选网页元素）'
+      button.innerHTML = toolbarPickGlyph()
+      button.addEventListener('click', function (event) {
+        event.preventDefault()
+        event.stopPropagation()
+        void startBrowserPick()
+      })
+      anchor.parentElement.insertBefore(button, anchor)
+    }
+
+    function startToolbarPickButton() {
+      if (toolbarPickObserver) return
+      toolbarPickObserver = new MutationObserver(function () {
+        ensureToolbarPickButton()
+      })
+      toolbarPickObserver.observe(document.documentElement, { childList: true, subtree: true })
+      ensureToolbarPickButton()
+      toolbarPickTimer = window.setInterval(ensureToolbarPickButton, 2000)
+    }
+
+    function stopToolbarPickButton() {
+      if (toolbarPickObserver) {
+        toolbarPickObserver.disconnect()
+        toolbarPickObserver = null
+      }
+      if (toolbarPickTimer) {
+        window.clearInterval(toolbarPickTimer)
+        toolbarPickTimer = null
+      }
+      removeToolbarPickButton()
+    }
+
     async function startBrowserPick() {
       var target = findBestWebview(null)
       if (!target) {
         setPanelState({ state: 'failed', message: '没有可用的 Browser 页面' })
         return false
+      }
+      if (!isVisible(target)) {
+        try {
+          openInBrowserTab(clientContext, webviewUrl(target))
+          await sleep(400)
+          target = findBestWebview(null) || target
+        } catch (error) {
+          /* continue with the mounted webview */
+        }
       }
       try {
         await ensureFloatingButton()
@@ -3247,7 +3374,12 @@ window.__ModuleLoader__.load({
           )
           await executeInPage(
             target,
-            '(' + floatingAnnotator.toString() + ')(' + JSON.stringify({ hideButton: hideButton }) + ')',
+            ' (' +
+            JSON.stringify({
+              hideButton: hideButton,
+              detail: bridgeInfo && bridgeInfo.features ? bridgeInfo.features.annotationDetail || 'compact' : 'compact',
+            }) +
+            ')',
             5000,
           )
           started = await executeInPage(target, probe, 3000)
@@ -3400,6 +3532,11 @@ window.__ModuleLoader__.load({
       inject: ['sidebarRight'],
       apply: function apply(ctx) {
         clientContext = ctx
+        try {
+          startToolbarPickButton()
+        } catch (error) {
+          /* toolbar button is best effort */
+        }
         ctx.effect(function () {
           var loop = createBridgeLoop(ctx)
           return function () {

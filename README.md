@@ -138,9 +138,11 @@ browser_use_panel
 | `approvalPolicy` | `sensitive` | 敏感动作是否询问：`sensitive` / `all` / `off` |
 | `originApproval` | `ask` | 新网站首次访问是否询问：`ask` / `off` |
 | `annotationSendMode` | `insert` | 批注只插入草稿；改成 `submit` 则自动发送 |
+| `toolbarPickButton` | `true` | 在右侧面板右上角图标组显示「选取元素」按钮（best-effort；DSH 升级结构变化时仍可用标签菜单） |
 | `floatingPickButton` | `false` | 是否显示页面右上角浮动「⌖ 选取元素」；默认关闭，推荐用 Browser 标签菜单里的「⌖ 选取元素」避免遮挡页面 |
 | `visualFeedback` | `true` | 是否显示 Agent 光标/高亮/波纹 |
-| `annotationScreenshot` | `viewport` | 批注发送时自动附带一张当前视口截图；`off` 关闭 |
+| `annotationScreenshot` | `viewport` | 批注发送时自动附带一张当前视口截图（含编号标注）；`off` 关闭 |
+| `annotationDetail` | `compact` | 批注文本默认只发“批注 N + 评论 + 元素名”；`full` 才带选择器/坐标等完整信息 |
 | `cdpPort` | `9222` | 截图首选端口；被占用会自动尝试 9223/9333 等 |
 | `promptSection` | `true` | 是否把 Browser Use 使用说明注入模型提示 |
 | `trustedOrigins` | `[]` | 跳过新网站审批的站点白名单 |
