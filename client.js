@@ -149,6 +149,7 @@ window.__ModuleLoader__.load({
       '.bu8f3a2c71_menu_item:hover{background:var(--dsw-alias-interactive-bg-hover)}' +
       '.bu8f3a2c71_toolbar_pick{all:unset;box-sizing:border-box;width:24px;height:24px;border-radius:var(--dsw-radius-sm);display:inline-flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-secondary);cursor:pointer}' +
       '.bu8f3a2c71_toolbar_pick:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}' +
+      '.bu8f3a2c71_toolbar_pick.on{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}' +
       '@keyframes bu8f3a2c71_breathe{0%,100%{opacity:.45}50%{opacity:1}}' +
       '@keyframes bu8f3a2c71_pulse{0%,100%{opacity:.5}50%{opacity:1}}' +
       '@media (prefers-reduced-motion: reduce){.bu8f3a2c71_root::after{animation:none!important}}'
@@ -2364,6 +2365,9 @@ window.__ModuleLoader__.load({
             clearAnnotations()
             setMode('idle')
           },
+          isActive: function () {
+            return mode === 'select' || mode === 'comment'
+          },
           prepareCapture: function () {
             try {
               pop.style.display = 'none'
@@ -3290,10 +3294,15 @@ window.__ModuleLoader__.load({
     function toolbarPickGlyph() {
       return (
         '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">' +
-        '<path d="M5.5 2H3.5A1.5 1.5 0 0 0 2 3.5v2M10.5 2h2A1.5 1.5 0 0 1 14 3.5v2M5.5 14h-2A1.5 1.5 0 0 1 2 12.5v-2M10.5 14h2a1.5 1.5 0 0 0 1.5-1.5v-2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>' +
-        '<path d="M6.6 5.8 11.7 8l-2.2.9-.9 2.2-2-5.3Z" fill="currentColor" stroke="var(--dsw-alias-bg-base)" stroke-width=".6" stroke-linejoin="round"/>' +
+        '<path d="M5.5 2.25H3.75A1.5 1.5 0 0 0 2.25 3.75V5.5M10.5 2.25h1.75a1.5 1.5 0 0 1 1.5 1.5V5.5M5.5 13.75H3.75a1.5 1.5 0 0 1-1.5-1.5V10.5M10.5 13.75h1.75a1.5 1.5 0 0 0 1.5-1.5V10.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>' +
+        '<path d="M6.7 5.6 11 7.5l-2.1.8-.8 2.1-1.4-4.8Z" fill="currentColor"/>' +
         '</svg>'
       )
+    }
+
+    function setToolbarPickActive(active) {
+      var button = document.querySelector('[data-dsh-bu-toolbar-pick]')
+      if (button) button.classList.toggle('on', Boolean(active))
     }
 
     function removeToolbarPickButton() {
@@ -3322,7 +3331,7 @@ window.__ModuleLoader__.load({
       button.addEventListener('click', function (event) {
         event.preventDefault()
         event.stopPropagation()
-        void startBrowserPick()
+        void toggleToolbarPick()
       })
       anchor.parentElement.insertBefore(button, anchor)
     }
@@ -3347,6 +3356,54 @@ window.__ModuleLoader__.load({
         toolbarPickTimer = null
       }
       removeToolbarPickButton()
+    }
+
+    async function toggleToolbarPick() {
+      var target = findBestWebview(null)
+      if (!target) {
+        setPanelState({ state: 'failed', message: '没有可用的 Browser 页面' })
+        return false
+      }
+      if (!isVisible(target)) {
+        try {
+          openInBrowserTab(clientContext, webviewUrl(target))
+          await sleep(400)
+          target = findBestWebview(null) || target
+        } catch (error) {
+          /* continue with mounted webview */
+        }
+      }
+      try {
+        var detail = bridgeInfo && bridgeInfo.features ? bridgeInfo.features.annotationDetail || 'compact' : 'compact'
+        var active = await executeInPage(
+          target,
+          '(function(){var a=window.__dshBrowserUseAnnotator;return !!(a&&typeof a.isActive==="function"&&a.isActive())})()',
+          3000,
+        )
+        if (active) {
+          await executeInPage(
+            target,
+            '(function(){var a=window.__dshBrowserUseAnnotator;if(a&&typeof a.stop==="function")a.stop();return true})()',
+            3000,
+          )
+          setToolbarPickActive(false)
+          setPanelState({ state: 'idle', message: '已退出选取元素' })
+          return false
+        }
+        await executeInPage(
+          target,
+          '(' +
+            floatingAnnotator.toString() +
+            ')(' +
+            JSON.stringify({ hideButton: true, detail: detail }) +
+            ')',
+          5000,
+        )
+        return await startBrowserPick()
+      } catch (error) {
+        setPanelState({ state: 'failed', message: '无法切换元素选取模式' })
+        return false
+      }
     }
 
     async function startBrowserPick() {
@@ -3385,12 +3442,14 @@ window.__ModuleLoader__.load({
           started = await executeInPage(target, probe, 3000)
         }
         if (started) {
+          setToolbarPickActive(true)
           setPanelState({ state: 'observing', message: '选取元素' })
           return true
         }
       } catch (error) {
         /* fall through */
       }
+      setToolbarPickActive(false)
       setPanelState({ state: 'failed', message: '无法进入元素选取模式' })
       return false
     }
